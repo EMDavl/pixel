@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>My Website</title>
+  </head>
+  <body>
+    <main>
+        <h1>Welcome to My Website</h1>  
+        <div>
+            <p>
+                Some cool text
+            </p>
+        </div>
+        <div id="imageContainer">
+
+        </div>
+    </main>
+
+    <script>
+      const socket = new WebSocket('ws://localhost:8888/socket');
+
+      socket.onopen = function(event) {
+          console.log('WebSocket connection established.');
+      };
+
+      socket.onmessage = function(event) {
+
+          const data = JSON.parse(event.data);
+          const imageUrl = data.imageUrl;
+
+          const imageElement = document.createElement('img');
+          imageElement.src = imageUrl;
+
+          const imageContainer = document.getElementById('imageContainer');
+          imageContainer.appendChild(imageElement);
+      };
+    </script>
+  </body>
+</html>

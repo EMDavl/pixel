@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name="pixel"
+version = "0.0.1"
+authors = [
+    {name = "Emil", email = "emdavlyatov@gmail.com"}
+]
+requires-python = ">=3.8"
+dependencies = [
+    "tornado",
+    "click"
+]
