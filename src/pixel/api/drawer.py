@@ -1,4 +1,3 @@
-from matplotlib import pyplot as plt
 from matplotlib import figure
 from pixel.router import router as rt
 import os

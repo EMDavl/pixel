@@ -2,3 +2,4 @@
 dist
 asyncio
 ex
+src/pixel/*/__pycache__
