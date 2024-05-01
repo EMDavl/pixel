@@ -9,18 +9,14 @@
   <body>
     <main>
         <h1>Welcome to My Website</h1>  
-        <div>
-            <p>
-                Some cool text
-            </p>
-        </div>
         <div id="imageContainer">
-
         </div>
     </main>
 
     <script>
       const socket = new WebSocket('ws://localhost:8888/socket');
+      const alreadyPresent = new Set();
+      const STATIC_PREFIX = "static/"
 
       socket.onopen = function(event) {
           console.log('WebSocket connection established.');
@@ -30,12 +26,16 @@
 
           const data = JSON.parse(event.data);
           const imageUrl = data.imageUrl;
+          const elementId = data.elementId;
 
-          const imageElement = document.createElement('img');
-          imageElement.src = imageUrl;
+          if (!alreadyPresent.has(elementId)) {
+            const imageElement = document.createElement('img');
+            imageElement.src = STATIC_PREFIX + imageUrl;
 
-          const imageContainer = document.getElementById('imageContainer');
-          imageContainer.appendChild(imageElement);
+            const imageContainer = document.getElementById('imageContainer');
+            imageContainer.appendChild(imageElement);
+            alreadyPresent.add(elementId);
+          }
       };
     </script>
   </body>

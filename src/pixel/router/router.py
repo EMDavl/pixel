@@ -1,3 +1,5 @@
+import pixel.web.web as web
+
 class Singleton(type):
     _instances = {}
     def __call__(cls, *args, **kwargs):
@@ -11,3 +13,7 @@ class Router(metaclass=Singleton):
 
     def add_img(self, id, img_path):
         self.data[id] = img_path
+    
+    @classmethod
+    def create(cls):
+        Router()
