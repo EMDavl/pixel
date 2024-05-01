@@ -11,5 +11,7 @@ authors = [
 requires-python = ">=3.8"
 dependencies = [
     "tornado",
-    "click"
+    "click",
+    "pandas",
+    "plotly"
 ]

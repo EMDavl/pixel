@@ -9,7 +9,7 @@
   <body>
     <main>
         <h1>Welcome to My Website</h1>  
-        <div id="imageContainer">
+        <div id="container">
         </div>
     </main>
 
@@ -21,21 +21,27 @@
       socket.onopen = function(event) {
           console.log('WebSocket connection established.');
       };
+      
 
-      socket.onmessage = function(event) {
-
-          const data = JSON.parse(event.data);
-          const imageUrl = data.imageUrl;
-          const elementId = data.elementId;
-
-          if (!alreadyPresent.has(elementId)) {
-            const imageElement = document.createElement('img');
-            imageElement.src = STATIC_PREFIX + imageUrl;
-
-            const imageContainer = document.getElementById('imageContainer');
-            imageContainer.appendChild(imageElement);
-            alreadyPresent.add(elementId);
-          }
+      socket.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        const container = document.getElementById('container');
+        if (alreadyPresent.has(message.id)) {
+          return;
+        }
+        if (message.type === 'image') {
+          const img = document.createElement('img');
+          img.src = STATIC_PREFIX + message.file_name;
+          container.appendChild(img);
+          container.appendChild(document.createElement('br'))
+        } else if (message.type === 'html') {
+          const iframe = document.createElement('iframe');
+          iframe.width = 800
+          iframe.height = 600
+          iframe.src = STATIC_PREFIX + message.file_name;
+          container.appendChild(iframe);
+          container.appendChild(document.createElement('br'))
+        }
       };
     </script>
   </body>

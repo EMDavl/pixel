@@ -9,10 +9,6 @@ import atexit
 import shutil
 
 async def main():
-    # Инициализируем все что надо
-    # Выполняем пользовательский код
-    # Поднимаем сервер Tornado
-    # Пишем что готовы к обработке входящих запросов
     init()
     atexit.register(exit_hook)
     await executor.execute_script()
@@ -40,7 +36,7 @@ def exit_hook():
 
 def sendImages(router):
     data = router.data
-    for elementId in data.keys():
-        web.MainWebSocket.broadcast_img(data[elementId], elementId)
+    for id in data.keys():
+        web.MainWebSocket.broadcast_msg(data[id])
 
    

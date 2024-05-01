@@ -1,4 +1,6 @@
-import pixel.web.web as web
+from pixel.api.widgets import Widget
+from typing import Dict
+
 
 class Singleton(type):
     _instances = {}
@@ -9,10 +11,10 @@ class Singleton(type):
 
 class Router(metaclass=Singleton):
     def __init__(self):
-        self.data = {}
+        self.data: Dict[int, Widget] = {}
 
-    def add_img(self, id, img_path):
-        self.data[id] = img_path
+    def add(self, id, obj: Widget):
+        self.data[id] = obj
     
     @classmethod
     def create(cls):

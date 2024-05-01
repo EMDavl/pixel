@@ -1,5 +1,3 @@
-
-
 from pixel.variables import CommonVariables, VariablesNames
 
 # TODO Maybe we should execute script in another thread?
