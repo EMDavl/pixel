@@ -1,48 +1,247 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>My Website</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>{{title}}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
   </head>
-  <body>
+  <body class="text-bg-light gp-4">
     <main>
-        <h1>Welcome to My Website</h1>  
-        <div id="container">
+      <div id="container" class="container">
+        <div class="modal fade" tabindex="-1" id="connection-closed-modal">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Connection closed</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <p>The server has closed the connection. Try reloading the page or come back later<p>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js" integrity="sha384-BBtl+eGJRgqQAUMxJ7pMwbEyER4l1g+O15P+16Ep7Q9Q+zqX6gSbd85u4mG4QzX+" crossorigin="anonymous"></script>
     <script>
-      const socket = new WebSocket('ws://localhost:8888/socket');
+      const socket = new WebSocket("ws://localhost:8888/socket");
       const alreadyPresent = new Set();
-      const STATIC_PREFIX = "static/"
+      const STATIC_PREFIX = "static/";
+      const container = document.getElementById("container");
+      const ID_TO_FORM_DATA = {};
 
-      socket.onopen = function(event) {
-          console.log('WebSocket connection established.');
+      socket.onopen = function (event) {
+        console.log("WebSocket connection established.");
       };
-      
 
       socket.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        const container = document.getElementById('container');
-        if (alreadyPresent.has(message.id)) {
+        if (message.type === "error") {
+          alert(message.cause)
+        }
+        if (message.id != undefined && alreadyPresent.has(message.id)) {
+          console.log("Received already processed widget", message.id)
           return;
         }
-        if (message.type === 'image') {
-          const img = document.createElement('img');
-          img.src = STATIC_PREFIX + message.file_name;
-          container.appendChild(img);
-          container.appendChild(document.createElement('br'))
-        } else if (message.type === 'html') {
-          const iframe = document.createElement('iframe');
-          iframe.width = 800
-          iframe.height = 600
-          iframe.src = STATIC_PREFIX + message.file_name;
-          container.appendChild(iframe);
-          container.appendChild(document.createElement('br'))
+        if (message.type === 'form_response') {
+          processFormResponse(message)
+        }
+        mapElem(message, container);
+        alreadyPresent.add(message.id);
+      };
+
+      socket.onclose = (event) => {
+        const connectionClosedModal = new bootstrap.Modal('#connection-closed-modal')
+        connectionClosedModal.show()
+      }
+
+      const mapElem = (message, cont) => {
+        if (message.type === "image") {
+          imageProcessor(message, cont);
+        } else if (message.type === "html") {
+          htmlProcessor(message, cont);
+        } else if (message.type === "markdown") {
+          markdownProcessor(message, cont);
+        } else if (message.type === "row") {
+          rowProcessor(message, cont);
+        } else if (message.type === "column") {
+          columnProcessor(message, cont);
+        } else if (message.type === "form") {
+          formProcessor(message, cont);
         }
       };
+
+      const imageProcessor = (message, cont) => {
+        const div = document.createElement('div')
+        const img = document.createElement("img");
+        div.classList.add('ratio')
+        div.classList.add('ratio-4x3')
+        img.classList.add('rounded-3')
+        img.src = STATIC_PREFIX + message.file_name;
+        div.appendChild(img)
+        cont.appendChild(div);
+      };
+
+      const htmlProcessor = (message, cont) => {
+        const iframe = document.createElement("iframe");
+        const div = document.createElement('div')
+        div.classList.add('ratio')
+        div.classList.add('ratio-4x3')
+ 
+        iframe.src = STATIC_PREFIX + message.file_name;
+        div.appendChild(iframe)
+        cont.appendChild(div);
+      };
+
+      const markdownProcessor = (message, cont) => {
+        const parsedMarkdown = marked.parse(message.markdown);
+        const div = document.createElement('div')
+        div.innerHTML += parsedMarkdown
+        div.classList.add('text-center')
+        cont.appendChild(div);
+      };
+
+      const rowProcessor = (message, cont) => {
+        const row = document.createElement("div");
+        row.classList.add("row")
+        for (const elem of message.widgets) {
+          const rowItem = document.createElement("div");
+          rowItem.classList.add("rowItem");
+          mapElem(elem, rowItem);
+          row.appendChild(rowItem);
+        }
+        cont.appendChild(row);
+      };
+
+      const columnProcessor = (message, cont) => {
+        const column = document.createElement("div");
+        column.classList.add("column");
+        for (const elem of message.widgets) {
+          const columnItem = document.createElement("div");
+          columnItem.classList.add("columnItem");
+          mapElem(elem, columnItem);
+          column.appendChild(columnItem);
+        }
+        cont.appendChild(column);
+      };
+
+      const formProcessor = (message, cont) => {
+        const formBlock = document.createElement('div')
+        formBlock.classList.add('row')
+        const formCol = document.createElement('div')
+        formCol.classList.add('col-6')
+        const resultCol = document.createElement('div')
+        resultCol.classList.add('col-6')
+        formBlock.appendChild(formCol)
+        formBlock.appendChild(resultCol)
+
+        const form = document.createElement("form");
+        form.id = message.id;
+        form.addEventListener("submit", (event) => {
+          event.preventDefault()
+          const formData = new FormData(form)
+          const args = []
+          for (const value of formData.values()) {
+            args.push(value)
+          }
+          
+          socket.send(JSON.stringify({
+            "id": message.id,
+            "args": args
+          }))
+        })
+
+        for (const input of message.input) {
+          form.appendChild(mapFormInput(input));
+        }
+
+        const btn = document.createElement("button");
+        btn.type = "submit";
+        btn.textContent = "Submit!"
+        form.appendChild(btn);
+        btn.classList.add('btn')
+        btn.classList.add('btn-primary')
+
+        formCol.appendChild(form);
+        const output = mapFormOutput(message.output);
+        resultCol.appendChild(output);
+
+        cont.appendChild(formBlock)
+        ID_TO_FORM_DATA[form.id] = new FormInfo(form, output, message.output.type);
+      };
+
+      const mapFormInput = (input) => {
+        const inputElement = document.createElement("input");
+        const div = document.createElement("div");
+        inputElement.id = `${input.id}`;
+        inputElement.name = `${input.id}`;
+        inputElement.classList.add('form-control')
+        inputElement.classList.add('mb-3')
+        const inputElementLabel = document.createElement("label");
+        inputElementLabel.for = `${input.id}`;
+        inputElementLabel.textContent = input.label;
+        inputElementLabel.classList.add('form-label')
+
+        if (input.type === "number_input") {
+          inputElement.type = "number";
+          inputElement.step = "0.01"
+        } else if (input.type === "image_input") {
+          inputElement.type = "file"
+        }
+        div.appendChild(inputElementLabel);
+        div.appendChild(document.createElement('br'))
+        div.appendChild(inputElement);
+        return div;
+      };
+
+      const mapFormOutput = (output) => {
+        if (output.type === "image_output") {
+          const elem = document.createElement("img");
+          elem.classList.add('hidden')
+          return elem;
+        } else if (output.type === "text_output") {
+          const elem = document.createElement("div");
+          elem.classList.add('text-center')
+          const label = document.createElement('h4')
+          label.textContent = output.label
+          elem.appendChild(label)
+          const textDiv = document.createElement('div')
+          textDiv.classList.add('alert')
+          textDiv.classList.add('alert-info')
+          const text = document.createElement('span')
+          text.classList.add('fw-medium')
+          textDiv.appendChild(text)
+          elem.appendChild(textDiv)
+          return elem;
+        }
+      };
+
+      const processFormResponse = (message) => {
+        const formData = ID_TO_FORM_DATA[message.formId]
+        const out = formData.output
+        console.log(out)
+        switch (message.outputType) {
+          case 'image_output':
+            out.src =  `data:image/png;base64,${message.bytes}`
+            break;
+          case "text_output":
+            out.getElementsByTagName('span')[0].textContent = message.text
+            break;
+        }
+      }
+
+      function FormInfo(form, output, outputType) {
+        return {
+          form: form,
+          output: output,
+          outputType: outputType,
+        };
+      }
     </script>
   </body>
 </html>

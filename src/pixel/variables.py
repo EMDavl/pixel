@@ -4,6 +4,7 @@ from enum import auto
 class VariablesNames(Enum):
     STATIC_PATH = auto()
     SCRIPT_NAME = auto()
+    TITLE = auto()
 
 
 class CommonVariables():

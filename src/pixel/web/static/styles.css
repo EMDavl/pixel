@@ -1,0 +1,9 @@
+.row {
+    display: flex;
+    height: 400px;
+    flex-flow: row wrap;
+}
+
+.rowItem {
+    padding: 1rem;
+}

@@ -1,4 +1,3 @@
-from pixel.router.router import Router
 from pixel.variables import CommonVariables, VariablesNames
 import pixel.web.web as web
 import pixel.cli.executor as executor
@@ -27,7 +26,6 @@ def init():
     path.mkdir()
     CommonVariables.set_var(VariablesNames.STATIC_PATH, path)
     CommonVariables.set_var(VariablesNames.SCRIPT_NAME, script_name)
-    Router.create()
 
 def exit_hook():
     path = CommonVariables.get_var(VariablesNames.STATIC_PATH)
