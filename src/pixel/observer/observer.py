@@ -15,14 +15,14 @@ class ScriptModificationHandler(FileSystemEventHandler):
 
     def on_modified(self, event: FileSystemEvent) -> None:
         # To prevent circular dependencies
-        from pixel.cli.executor import ScriptRerunner
+        from pixel.cli.executor import ScriptEvent
+
         if event.is_directory:
             return
         path = os.path.abspath(event.src_path)
         if path == self._scriptPath or path in self._dependencies:
             print("File {} has changed, reloading script".format(path))
-            executor = ScriptRerunner()
-            executor.start()
+            CommonVariables.get_var(VariablesNames.EVENT_QUEUE).put(ScriptEvent.RERUN)
             
 
 class ScriptModificationObserver(metaclass=Singleton):

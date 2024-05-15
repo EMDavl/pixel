@@ -1,3 +1,4 @@
+from queue import Queue
 from pixel.variables import CommonVariables, VariablesNames
 import pixel.web.web as web
 import pixel.cli.executor as executor
@@ -12,7 +13,14 @@ import matplotlib
 async def main():
     init()
     atexit.register(exit_hook)
-    executor.ScriptExecutor().start()
+    queue = Queue()
+    runner = executor.ScriptRunner(queue)
+    runner.daemon = True
+    runner.start()
+    CommonVariables.set_var(VariablesNames.EVENT_QUEUE, queue)
+    print('putting event')
+    queue.put_nowait(executor.ScriptEvent.START)
+    print('put event')
     await web.main()
 
 

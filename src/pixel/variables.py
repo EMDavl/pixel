@@ -5,6 +5,7 @@ class VariablesNames(Enum):
     STATIC_PATH = auto()
     SCRIPT_NAME = auto()
     TITLE = auto()
+    EVENT_QUEUE = auto()
 
 
 class CommonVariables():
