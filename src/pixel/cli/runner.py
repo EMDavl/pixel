@@ -6,11 +6,13 @@ import os
 from pathlib import Path
 import atexit
 import shutil
+import matplotlib
+
 
 async def main():
     init()
     atexit.register(exit_hook)
-    await executor.execute_script()
+    executor.ScriptExecutor().start()
     await web.main()
 
 
@@ -21,20 +23,23 @@ def init():
      - folders
      - ...
     """
+
+    # CREATING FOLDER FOR GENERATED CONTENT
     script_name = sys.argv[1]
     path = Path(os.path.join(os.path.dirname(script_name), ".static"))
+    if path.exists:
+        shutil.rmtree(path, ignore_errors=True)
     path.mkdir()
+
+    # SETTING SOME COMMON VARIABLES
     CommonVariables.set_var(VariablesNames.STATIC_PATH, path)
     CommonVariables.set_var(VariablesNames.SCRIPT_NAME, script_name)
+
+    # INITIALIZING THINGS
+    matplotlib.use("agg")
+
 
 def exit_hook():
     path = CommonVariables.get_var(VariablesNames.STATIC_PATH)
     shutil.rmtree(path, ignore_errors=True)
     print("Removed directory")
-
-def sendImages(router):
-    data = router.data
-    for id in data.keys():
-        web.MainWebSocket.broadcast_msg(data[id])
-
-   

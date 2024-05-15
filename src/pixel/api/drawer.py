@@ -1,4 +1,3 @@
-from _plotly_utils.basevalidators import base64
 from matplotlib import figure
 from pixel.api.widgets import (
     Form,
@@ -10,12 +9,15 @@ from pixel.api.widgets import (
     Row,
     Column,
 )
+from PIL import Image as PilImage
+import imagehash
 from pixel.web.processors import defaultProcessorManager as procManager
 from pixel.widget_manager.widget_manager import defaultWidgetManager as widgetManager
 import os
 from time import time
 import plotly as px
-from io import BytesIO
+from pixel.commons import nextId
+import hashlib
 
 from pixel.variables import CommonVariables, VariablesNames
 
@@ -26,11 +28,14 @@ def pyplot(fig: figure.Figure, justCreate=False):
     path = os.path.join(CommonVariables.get_var(VariablesNames.STATIC_PATH), filename)
 
     fig.savefig(path)
+    img = PilImage.open(path)
+    imgHash = str(imagehash.average_hash(img))
+    img.close()
+    imgWidget = ImageFile(imgHash, filename) 
     if justCreate:
-        return ImageFile(None, filename)
+        return imgWidget
     else:
-        id = next(generator)
-        widgetManager.register(id, ImageFile(id, filename))
+        widgetManager.register(imgHash, imgWidget)
 
 
 def plotly(fig, justCreate=False):
@@ -39,12 +44,12 @@ def plotly(fig, justCreate=False):
     path = os.path.join(CommonVariables.get_var(VariablesNames.STATIC_PATH), filename)
 
     px.offline.plot(fig, filename=path, auto_open=False)
+    hash = hashlib.md5(fig.to_json().encode()).hexdigest()
 
     if justCreate:
-        return Html(None, filename)
+        return Html(hash, filename)
     else:
-        id = next(generator)
-        widgetManager.register(id, Html(id, filename))
+        widgetManager.register(hash, Html(hash, filename))
 
 
 def title(text):
@@ -52,29 +57,27 @@ def title(text):
 
 
 def markdown(mdText, justCreate=False):
+    widget = Markdown(hashlib.md5(mdText.encode()).hexdigest(), mdText)
     if justCreate:
-        return Markdown(None, mdText)
+        return widget 
     else:
-        id = next(generator)
-        widgetManager.register(id, Markdown(id, mdText))
-
+        widgetManager.register(widget.hash, widget)
 
 def row(widgets, justCreate=False):
     if justCreate:
-        return Row(None, widgets)
+        return Row(widgets)
 
-    id = next(generator)
-    widgetManager.register(id, Row(id, widgets))
+    widgetManager.register(id, Row(widgets))
 
 
 def column(widgets, justCreate=False):
     if justCreate:
-        return Column(None, widgets)
+        return Column(widgets)
 
-    id = next(generator)
-    widgetManager.register(id, Column(id, widgets))
+    id = nextId()
+    widgetManager.register(id, Column(widgets))
 
-
+# TODO придумать как тут считать хеш
 def form(inputWidgets, outputWidget: Output, function):
     try:
         iter(inputWidgets)
@@ -86,27 +89,14 @@ def form(inputWidgets, outputWidget: Output, function):
         # TODO send alert or display error instead of this panel
         pass
     for inputElement in inputWidgets:
-        if inputElement._id is None:
-            inputElement._id = next(generator)
-        if not issubclass(inputElement.__class__, Input):
+       if not issubclass(inputElement.__class__, Input):
             # TODO send alert or display error instead of this panel
             break
     if not issubclass(outputWidget.__class__, Output):
         # TODO send alert or display error instead of this panel
         pass
-    if outputWidget._id is None:
-        outputWidget._id = next(generator)
-    identifier = next(generator)
 
-    procManager.registerNew(identifier, function, outputWidget.outputType)
-    widgetManager.register(identifier, Form(identifier, inputWidgets, outputWidget))
+    procManager.registerNew('hash', function, outputWidget._type)
+    widgetManager.register('hash', Form(inputWidgets, outputWidget))
 
 
-def get_id():
-    id = 0
-    while True:
-        id = id + 1
-        yield id
-
-
-generator = get_id()

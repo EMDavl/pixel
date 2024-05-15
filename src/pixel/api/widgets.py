@@ -1,125 +1,162 @@
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
+from enum import Enum, auto
 from typing import Any, Dict
+from hashlib import md5
+import uuid
+from sortedcontainers import SortedList
+
+class WidgetType(Enum):
+    ## COMMON WIDGETS
+    IMAGE = auto()
+    HTML = auto()
+    MARKDOWN = auto()
+
+    ## LAYOUT
+    ROW = auto()
+    COLUMN = auto()
+
+    ## FORM RELATED
+    FORM = auto()
+
+    ### INPUTS
+    NUMBER_INPUT = auto()
+
+    ### OUTPUTS
+    IMAGE_OUTPUT = auto()
+    TEXT_OUTPUT = auto()
 
 
 class Widget(metaclass=ABCMeta):
-    def __init__(self, id):
-        self._id = id
+    def __init__(self, widgetHash, widgetType: WidgetType):
+        self._type = widgetType
+        self.hash = widgetHash
+        self.id = str(uuid.uuid4())
 
-    @abstractmethod
-    def to_message(self) -> Dict[str, Any]: ...
+    def to_message(self) -> Dict[str, Any]:
+        return {"id": self.id, "hash": self.hash, "type": self._type.name.lower()}
+
+
+class Container(Widget):
+    pass
 
 
 class ImageFile(Widget):
-    def __init__(self, id, file_name):
-        super(ImageFile, self).__init__(id)
+    def __init__(self, hash, file_name):
+        super(ImageFile, self).__init__(hash, WidgetType.IMAGE)
         self._file_name = file_name
 
     def to_message(self):
-        return {"id": self._id, "file_name": self._file_name, "type": "image"}
+        message = super().to_message()
+        message["file_name"] = self._file_name
+        return message
 
 
 class Html(Widget):
-    def __init__(self, id, file_name):
-        super(Html, self).__init__(id)
+    def __init__(self, hash, file_name):
+        super(Html, self).__init__(hash, WidgetType.HTML)
         self._file_name = file_name
 
     def to_message(self):
-        return {"id": self._id, "file_name": self._file_name, "type": "html"}
+        message = super().to_message()
+        message["file_name"] = self._file_name
+        return message
 
 
 class Markdown(Widget):
-    def __init__(self, id, markdown):
-        super(Markdown, self).__init__(id)
+    def __init__(self, hash, markdown):
+        super(Markdown, self).__init__(hash, WidgetType.MARKDOWN)
         self._markdown = markdown
 
     def to_message(self) -> Dict[str, Any]:
-        return {"id": self._id, "markdown": self._markdown, "type": "markdown"}
+        message = super().to_message()
+        message["markdown"] = self._markdown
+        return message
 
 
-class Row(Widget):
-    def __init__(self, id, widgets):
-        super(Row, self).__init__(id)
+class Row(Container):
+    def __init__(self, widgets):
+        super(Row, self).__init__(_getHashOfWidgets(widgets), WidgetType.ROW)
         self._widgets = widgets
 
     def to_message(self) -> Dict[str, Any]:
-        return {
-            "id": self._id,
-            "type": "row",
-            "widgets": [widgetMessage.to_message() for widgetMessage in self._widgets],
-        }
+        message = super().to_message()
+        message["widgets"] = [
+            widgetMessage.to_message() for widgetMessage in self._widgets
+        ]
+        return message
 
 
-class Column(Widget):
-    def __init__(self, id, widgets):
-        super(Column, self).__init__(id)
+class Column(Container):
+    def __init__(self, widgets):
+        super(Column, self).__init__(_getHashOfWidgets(widgets), WidgetType.COLUMN)
         self._widgets = widgets
 
     def to_message(self) -> Dict[str, Any]:
-        return {
-            "id": self._id,
-            "type": "column",
-            "widgets": [widgetMessage.to_message() for widgetMessage in self._widgets],
-        }
+        message = super().to_message()
+        message["widgets"] = [
+            widgetMessage.to_message() for widgetMessage in self._widgets
+        ]
+        return message
 
 
+## FORM RELATED
+class Form(Widget):
+    def __init__(self, inputWidgets, output):
+        super(Form, self).__init__(_getHashOfWidgets(inputWidgets), WidgetType.FORM)
+        self._input = inputWidgets
+        self._output = output
+
+    def to_message(self) -> Dict[str, Any]:
+        message = super().to_message()
+        message["input"] = [inputElem.to_message() for inputElem in self._input]
+        message["output"] = self._output.to_message()
+        return message
+
+
+### INPUTS
 class Input(Widget, metaclass=ABCMeta):
-    def __init__(self, id, label):
-        super(Input, self).__init__(id)
+    def __init__(self, label, widgetType):
+        super(Input, self).__init__(md5((label + widgetType.name).encode()).hexdigest(), widgetType)
         self._label = label
 
 
 class Number(Input):
     def __init__(self, label):
-        super(Number, self).__init__(None, label)
+        super(Number, self).__init__(label, WidgetType.NUMBER_INPUT)
 
     def to_message(self) -> Dict[str, Any]:
-        return {
-            "id": self._id,
-            "label": self._label,
-            "type": "number_input",
-        }
+        message = super().to_message()
+        message["label"] = self._label
+        return message
 
 
+### OUTPUTS
 class Output(Widget, metaclass=ABCMeta):
-    def __init__(self, id, label, outputType):
-        super(Output, self).__init__(id)
+    def __init__(self, label, widgetType):
+        super(Output, self).__init__(md5((label + widgetType.name).encode()).hexdigest(), widgetType)
         self._label = label
-        self.outputType = outputType
+
+    def to_message(self) -> Dict[str, Any]:
+        msg = super().to_message()
+        msg["label"] = self._label
+        return msg
 
 
 class ImageOut(Output):
     def __init__(self, label):
-        super(ImageOut, self).__init__(None, label, "image_output")
+        super(ImageOut, self).__init__(label, WidgetType.IMAGE_OUTPUT)
 
-    def to_message(self) -> Dict[str, Any]:
-        return {
-            "id": self._id,
-            "label": self._label,
-            "type": "image_output",
-        }
 
 class TextOutput(Output):
     def __init__(self, label):
-        super().__init__(None, label, "text_output")
+        super().__init__(label, WidgetType.TEXT_OUTPUT)
 
-    def to_message(self) -> Dict[str, Any]:
-        return {
-            "id": self._id,
-            "label": self._label,
-            "type": self.outputType
-        }
 
-class Form(Widget):
-    def __init__(self, id, inputWidgets, output):
-        super(Form, self).__init__(id)
-        self._input = inputWidgets
-        self._output = output
-
-    def to_message(self) -> Dict[str, Any]:
-        return {
-            "id": self._id,
-            "type": "form",
-            "input": [inputElem.to_message() for inputElem in self._input],
-            "output": self._output.to_message(),
-        }
+def _getHashOfWidgets(widgets):
+    hashString = ""
+    hashes = SortedList()
+    for widget in widgets:
+        hashes.add(widget.hash)
+    for hash in hashes:
+        hashString += hash
+    return md5(hashString.encode()).hexdigest()
