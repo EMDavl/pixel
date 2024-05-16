@@ -1,8 +1,12 @@
+import os
 from re import I
-from pixel.api.widgets import Container, Widget
+from pixel.api.widgets import Resource, Widget
 from typing import List
 from pixel.commons import Singleton, resetId
 from collections import namedtuple
+import pathlib
+
+from pixel.variables import CommonVariables, VariablesNames
 
 WidgetManagerSnapshot = namedtuple("WidgetManagerSnapshot", ["data", "hashes"])
 PositionedWidget = namedtuple("PositionedWidget", ["widget", "position"])
@@ -51,7 +55,9 @@ class DiffChecker:
                     )
                 )
             else:
-                positionsOfOldWidgetsInNewLayout.append(PositionedWidget(widget, actualPosition))
+                positionsOfOldWidgetsInNewLayout.append(
+                    PositionedWidget(widget, actualPosition)
+                )
         toMove = self.orderMovements(positionsOfOldWidgetsInNewLayout)
         toCreate = self.orderCreations(toCreate)
         self.diff = WidgetsDiff(toDelete, toCreate, toMove)
@@ -61,45 +67,42 @@ class DiffChecker:
         for i in range(len(self._snapshot)):
             if self._snapshot[i].widget.hash == widgetHash:
                 return i
-    
+
     def orderMovements(self, newPositions) -> List[Movement]:
         orderedMovements = []
-        if (len(newPositions) == 0):
+        if len(newPositions) == 0:
             return []
-        if (len(newPositions) == 1):
+        if len(newPositions) == 1:
             return [Movement(newPositions[0].widget.hash, "", "")]
 
-        orderedMovements.append(Movement(newPositions[0].widget.hash, "", newPositions[-1].widget.hash))
+        orderedMovements.append(
+            Movement(newPositions[0].widget.hash, "", newPositions[1].widget.hash)
+        )
         for i in range(1, len(newPositions) - 1):
-           widgetHash = newPositions[i].widget.hash
-           after = newPositions[i - 1].widget.hash 
-           before = newPositions[i + 1].widget.hash 
-           orderedMovements.append(Movement(widgetHash, after, before))
-        
-        orderedMovements.append(Movement(newPositions[-1].widget.hash, newPositions[-2].widget.hash, ""))
-        return orderedMovements
+            widgetHash = newPositions[i].widget.hash
+            after = newPositions[i - 1].widget.hash
+            before = newPositions[i + 1].widget.hash
+            orderedMovements.append(Movement(widgetHash, after, before))
 
+        orderedMovements.append(
+            Movement(newPositions[-1].widget.hash, newPositions[-2].widget.hash, "")
+        )
+        return orderedMovements
 
     def orderCreations(self, toCreate):
         orderedCreations = []
         compareWith = set(self._snapshotHashes)
         processed = 0
-        # TODO Сделать поэфективней
-        while (len(toCreate) != processed):
+        while len(toCreate) != processed:
             for i in range(len(toCreate)):
                 elem = toCreate[i]
-                if (elem.widget.hash in compareWith):
+                if elem.widget.hash in compareWith:
                     continue
-                if (elem.after in compareWith or elem.before in compareWith):
+                if elem.after in compareWith or elem.before in compareWith:
                     orderedCreations.append(elem)
                     compareWith.add(elem.widget.hash)
                     processed += 1
         return orderedCreations
-                
-
-
-
-
 
 
 class WidgetManager(metaclass=Singleton):
@@ -125,8 +128,6 @@ class WidgetManager(metaclass=Singleton):
         resetId()
         return WidgetManagerSnapshot(self._snapshot, self._snapshotHashes)
 
-    # TODO Возможно есть смысл отдавать тут версию, чтобы пользователи чьи виджеты
-    # и так актуальны не перерисовывали экран
     def widgetsIterator(self):
         if self._isScriptRunning:
             return self._snapshot.__iter__()
@@ -136,6 +137,22 @@ class WidgetManager(metaclass=Singleton):
     def executed(self):
         self._isScriptRunning = False
 
+    def cleanup(self):
+        if True:
+            return
+        for widget in self._snapshot:
+            if self.resourceHasToBeDeleted(widget.widget):
+                self.deleteResource(widget.widget)
+
+    def resourceHasToBeDeleted(self, widget):
+        return issubclass(widget.__class__, Resource)
+
+    def deleteResource(self, widget):
+        path = os.path.join(
+            CommonVariables.get_var(VariablesNames.STATIC_PATH), widget.file_name
+        )
+        pathlib.Path(path).unlink(missing_ok=False)
+
     def sendDiff(self, diff: WidgetsDiff):
         from pixel.web.web import MessagingManager
 
@@ -144,7 +161,10 @@ class WidgetManager(metaclass=Singleton):
                 "type": "update",
                 "toDelete": diff.toDelete,
                 "toMove": diff.toMove,
-                "toCreate": [[widget[0].to_message(), widget[1], widget[2]] for widget in diff.toCreate],
+                "toCreate": [
+                    [widget[0].to_message(), widget[1], widget[2]]
+                    for widget in diff.toCreate
+                ],
             }
         )
 

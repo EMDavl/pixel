@@ -18,9 +18,7 @@ async def main():
     runner.daemon = True
     runner.start()
     CommonVariables.set_var(VariablesNames.EVENT_QUEUE, queue)
-    print('putting event')
     queue.put_nowait(executor.ScriptEvent.START)
-    print('put event')
     await web.main()
 
 

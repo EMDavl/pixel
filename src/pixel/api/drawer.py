@@ -1,3 +1,4 @@
+import functools
 from matplotlib import figure
 from pixel.api.widgets import (
     Form,
@@ -11,6 +12,7 @@ from pixel.api.widgets import (
 )
 from PIL import Image as PilImage
 import imagehash
+from typing import cast
 from pixel.web.processors import defaultProcessorManager as procManager
 from pixel.widget_manager.widget_manager import defaultWidgetManager as widgetManager
 import os
@@ -31,7 +33,7 @@ def pyplot(fig: figure.Figure, justCreate=False):
     img = PilImage.open(path)
     imgHash = str(imagehash.average_hash(img))
     img.close()
-    imgWidget = ImageFile(imgHash, filename) 
+    imgWidget = ImageFile(imgHash, filename)
     if justCreate:
         return imgWidget
     else:
@@ -59,9 +61,10 @@ def title(text):
 def markdown(mdText, justCreate=False):
     widget = Markdown(hashlib.md5(mdText.encode()).hexdigest(), mdText)
     if justCreate:
-        return widget 
+        return widget
     else:
         widgetManager.register(widget.hash, widget)
+
 
 def row(widgets, justCreate=False):
     if justCreate:
@@ -77,7 +80,7 @@ def column(widgets, justCreate=False):
     id = nextId()
     widgetManager.register(id, Column(widgets))
 
-# TODO придумать как тут считать хеш
+
 def form(inputWidgets, outputWidget: Output, function):
     try:
         iter(inputWidgets)
@@ -89,14 +92,25 @@ def form(inputWidgets, outputWidget: Output, function):
         # TODO send alert or display error instead of this panel
         pass
     for inputElement in inputWidgets:
-       if not issubclass(inputElement.__class__, Input):
+        if not issubclass(inputElement.__class__, Input):
             # TODO send alert or display error instead of this panel
             break
     if not issubclass(outputWidget.__class__, Output):
         # TODO send alert or display error instead of this panel
         pass
+    form = Form(inputWidgets, outputWidget)
+    procManager.registerForm(form.hash, function, outputWidget._type)
+    widgetManager.register(form.hash, form)
 
-    procManager.registerNew('hash', function, outputWidget._type)
-    widgetManager.register('hash', Form(inputWidgets, outputWidget))
 
+def api(endpoint):
+    def wrap(func):
+        procManager.registerEndpoint(endpoint, func)
 
+        @functools.wraps(func)
+        def wrapper(*args):
+            return func(*args)
+
+        return wrapper
+
+    return wrap

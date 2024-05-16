@@ -3,7 +3,6 @@ from enum import Enum, auto
 from typing import Any, Dict
 from hashlib import md5
 import uuid
-from sortedcontainers import SortedList
 
 class WidgetType(Enum):
     ## COMMON WIDGETS
@@ -39,28 +38,24 @@ class Widget(metaclass=ABCMeta):
 class Container(Widget):
     pass
 
-
-class ImageFile(Widget):
-    def __init__(self, hash, file_name):
-        super(ImageFile, self).__init__(hash, WidgetType.IMAGE)
-        self._file_name = file_name
-
+class Resource(Widget):
+    def __init__(self, widgetHash, widgetType: WidgetType, file_name):
+        super().__init__(widgetHash, widgetType)
+        self.file_name = file_name
+    
     def to_message(self):
         message = super().to_message()
-        message["file_name"] = self._file_name
+        message["file_name"] = self.file_name
         return message
 
 
-class Html(Widget):
+class ImageFile(Resource):
+    def __init__(self, widgetHash, file_name):
+        super().__init__(widgetHash, WidgetType.IMAGE, file_name)
+
+class Html(Resource):
     def __init__(self, hash, file_name):
-        super(Html, self).__init__(hash, WidgetType.HTML)
-        self._file_name = file_name
-
-    def to_message(self):
-        message = super().to_message()
-        message["file_name"] = self._file_name
-        return message
-
+        super(Html, self).__init__(hash, WidgetType.HTML, file_name)
 
 class Markdown(Widget):
     def __init__(self, hash, markdown):
@@ -75,7 +70,7 @@ class Markdown(Widget):
 
 class Row(Container):
     def __init__(self, widgets):
-        super(Row, self).__init__(_getHashOfWidgets(widgets), WidgetType.ROW)
+        super(Row, self).__init__(_getHashForContainer(widgets), WidgetType.ROW)
         self._widgets = widgets
 
     def to_message(self) -> Dict[str, Any]:
@@ -88,7 +83,7 @@ class Row(Container):
 
 class Column(Container):
     def __init__(self, widgets):
-        super(Column, self).__init__(_getHashOfWidgets(widgets), WidgetType.COLUMN)
+        super(Column, self).__init__(_getHashForContainer(widgets), WidgetType.COLUMN)
         self._widgets = widgets
 
     def to_message(self) -> Dict[str, Any]:
@@ -102,7 +97,7 @@ class Column(Container):
 ## FORM RELATED
 class Form(Widget):
     def __init__(self, inputWidgets, output):
-        super(Form, self).__init__(_getHashOfWidgets(inputWidgets), WidgetType.FORM)
+        super(Form, self).__init__(_getHashForContainer(inputWidgets), WidgetType.FORM)
         self._input = inputWidgets
         self._output = output
 
@@ -152,11 +147,11 @@ class TextOutput(Output):
         super().__init__(label, WidgetType.TEXT_OUTPUT)
 
 
-def _getHashOfWidgets(widgets):
+def _getHashForContainer(widgets):
     hashString = ""
-    hashes = SortedList()
+    hashes = []
     for widget in widgets:
-        hashes.add(widget.hash)
+        hashes.append(widget.hash)
     for hash in hashes:
         hashString += hash
     return md5(hashString.encode()).hexdigest()

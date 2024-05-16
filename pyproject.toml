@@ -11,9 +11,8 @@ authors = [
 requires-python = ">=3.8"
 dependencies = [
     "tornado",
-    "pandas",
-    "plotly",
     "watchdog",
     "imagehash",
-    "sortedcontainers",
+    "jsonpickle",
+    "pydantic",
 ]

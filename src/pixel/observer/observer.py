@@ -4,6 +4,7 @@ import os
 import sys
 from pixel.variables import CommonVariables, VariablesNames
 from pixel.commons import Singleton
+from typing import List, Set
 
 
 class ScriptModificationHandler(FileSystemEventHandler):
@@ -11,7 +12,6 @@ class ScriptModificationHandler(FileSystemEventHandler):
         super().__init__()
         self._scriptPath = path_to_script
         self._dependencies = dependencies
-        print(self._dependencies)
 
     def on_modified(self, event: FileSystemEvent) -> None:
         # To prevent circular dependencies
@@ -21,11 +21,22 @@ class ScriptModificationHandler(FileSystemEventHandler):
             return
         path = os.path.abspath(event.src_path)
         if path == self._scriptPath or path in self._dependencies:
-            print("File {} has changed, reloading script".format(path))
             CommonVariables.get_var(VariablesNames.EVENT_QUEUE).put(ScriptEvent.RERUN)
             
 
-class ScriptModificationObserver(metaclass=Singleton):
+class ScriptObserverBase():
+    def reloadObserver(self):
+        ...
+
+
+    def getDependencies(self, scriptDir) -> Set[str]:
+        ...
+
+
+    def isValidFile(self, path, scriptDir) -> bool:
+        ...
+
+class ScriptModificationObserver(ScriptObserverBase, metaclass=Singleton):
 
     def __init__(self):
         self.obs = Observer()
@@ -76,5 +87,12 @@ class ScriptModificationObserver(metaclass=Singleton):
             and path.endswith(".py")
         )
 
+class NoOpObserver(ScriptObserverBase):
+    def getDependencies(self, scriptDir):
+        pass
+    def isValidFile(self, path, pathDir):
+        pass
+    def reloadObserver(self):
+        pass
 
-observerInstance = ScriptModificationObserver()
+observerInstance = ScriptModificationObserver() # if (len(sys.argv) >= 3 and sys.argv[3] == 'd') else NoOpObserver()

@@ -51,9 +51,9 @@
       const alreadyPresent = new Set();
       const STATIC_PREFIX = "static/";
       const container = document.getElementById("container");
-      const ID_TO_FORM_DATA = {};
-      const widgets = new Map();
-      const widgetOrder = [];
+      const ID_TO_FORM_DATA = {}; // form id - form info
+      const widgets = new Map(); // Hash - Div
+      const widgetOrder = []; // Hashes
 
       socket.onopen = function (event) {
         console.log("WebSocket connection established.");
@@ -129,8 +129,6 @@
           container.replaceChild(elementClone, toBeSwappedWith);
           widgets.set(movement[0], elementClone);
           widgets.set(toBeSwappedWithHash, toBeSwappedWithClone);
-
-          console.log(positionsOfOldWidgetsInNewLayout[i]);
         }
         for (const widgetWithNeighbors of toCreate) {
           const nodeAfterNew = widgets.get(widgetWithNeighbors[2]);
@@ -138,17 +136,21 @@
           container.insertBefore(element, nodeAfterNew);
           widgets.set(widgetWithNeighbors[0].hash, element);
           if (nodeAfterNew === undefined) {
-            widgetOrder.push(widgetWithNeighbors[0]);
+            widgetOrder.push(widgetWithNeighbors[0].hash);
           } else {
             var elementIndex = widgetOrder.indexOf(widgetWithNeighbors[2]);
-            widgetOrder.splice(elementIndex, 0, element);
+            widgetOrder.splice(elementIndex, 0, widgetWithNeighbors[0].hash);
           }
         }
       };
 
       const addElem = (message, cont) => {
-        const div = createElem(message.widget);
+        const widget = message.widget
+        const div = createElem(widget);
         cont.appendChild(div);
+        // const container = widgets.get(widget.hash) ?? new Map()
+        // container.set(widget.id, div)
+        widgets.set(widget.hash, div);
       };
 
       const createElem = (widget) => {
@@ -176,7 +178,6 @@
         img.classList.add("rounded-3");
         img.src = STATIC_PREFIX + widget.file_name;
         div.appendChild(img);
-        widgets.set(widget.hash, div);
         return div;
       };
 
@@ -188,7 +189,6 @@
 
         iframe.src = STATIC_PREFIX + widget.file_name;
         div.appendChild(iframe);
-        widgets.set(widget.hash, div);
         return div;
       };
 
@@ -197,7 +197,6 @@
         const div = createDiv(widget.hash);
         div.innerHTML += parsedMarkdown;
         div.classList.add("text-center");
-        widgets.set(widget.hash, div);
         return div;
       };
 
@@ -210,7 +209,6 @@
           addElem(elem, rowItem);
           row.appendChild(rowItem);
         }
-        widgets.set(widget.hash, row);
         return row;
       };
 
@@ -223,7 +221,6 @@
           addElem(elem, columnItem);
           column.appendChild(columnItem);
         }
-        widgets.set(widget.hash, column);
         return column;
       };
 
@@ -275,7 +272,6 @@
           output,
           widget.output.type
         );
-        widgets.set(widget.hash, formBlock);
         return formBlock;
       };
 

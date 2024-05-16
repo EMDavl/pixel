@@ -22,26 +22,21 @@ class ScriptRunner(Thread):
 
     def run(self) -> None:
         while True:
-            print('waiting for event')
             event = self.queue.get()
-            print('Got event: ', event)
             try:
                 self.lock.acquire()
-                print('acquired lock')
                 if event == ScriptEvent.START:
                     self.executeInitial()
                 elif event == ScriptEvent.RERUN:
                     self.executeRerun()
+            except Exception as e:
+                print(e)
             finally:
                 self.lock.release()
-                print('released lock')
 
     def executeInitial(self):
-        print("Executing script")
         _execute_script()
-        print("Reloading observer")
         observerInstance.reloadObserver()
-        print("Collecting garbage")
         gc.collect()
 
     def executeRerun(self):
@@ -49,13 +44,13 @@ class ScriptRunner(Thread):
         _execute_script()
         observerInstance.reloadObserver()
 
-        defaultWidgetManager.executed()
         diffChecker = DiffChecker(wmSnapshot)
+        defaultWidgetManager.executed()
+        defaultWidgetManager.cleanup()
         if diffChecker.hasDiff:
             cb = lambda: defaultWidgetManager.sendDiff(diffChecker.diff)
             TornadoIOLoop.var.addCallback(cb)
 
-        print("Collecting garbage")
         gc.collect()
 
 
