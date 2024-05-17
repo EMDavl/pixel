@@ -18,7 +18,7 @@ from pixel.widget_manager.widget_manager import defaultWidgetManager as widgetMa
 import os
 from time import time
 import plotly as px
-from pixel.commons import nextId
+from matplotlib import pyplot as plt
 import hashlib
 
 from pixel.variables import CommonVariables, VariablesNames
@@ -34,6 +34,7 @@ def pyplot(fig: figure.Figure, justCreate=False):
     imgHash = str(imagehash.average_hash(img))
     img.close()
     imgWidget = ImageFile(imgHash, filename)
+    plt.close(fig) 
     if justCreate:
         return imgWidget
     else:
@@ -74,11 +75,11 @@ def row(widgets, justCreate=False):
 
 
 def column(widgets, justCreate=False):
+    col = Column(widgets)
     if justCreate:
-        return Column(widgets)
+        return col
 
-    id = nextId()
-    widgetManager.register(id, Column(widgets))
+    widgetManager.register(col.hash, col)
 
 
 def form(inputWidgets, outputWidget: Output, function):

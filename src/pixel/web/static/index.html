@@ -61,34 +61,34 @@
 
       socket.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        if (message.type === "form_response") {
-          processFormResponse(message);
+        if (message.type === "FORM_RESPONSE") {
+          processFormResponse(message.data);
           return;
         }
-        if (message.type === "error") {
-          alert(message.cause);
+        if (message.type === "ERROR") {
+          alert(message.data.cause);
           return;
         }
-        if (message.type === "update") {
-          updateScreen(message);
+        if (message.type === "UPDATE") {
+          updateScreen(message.data);
           return;
         }
-        if (message.type !== "widget") {
+        if (message.type !== "WIDGET") {
           console.error("Passed message type is not known", message.type);
           return;
         }
 
         if (
-          message.widget.hash != undefined &&
-          alreadyPresent.has(message.widget.hash)
+          message.data.hash != undefined &&
+          alreadyPresent.has(message.data.hash)
         ) {
-          console.log("Received already processed widget", message.widget.id);
+          console.log("Received already processed widget", message.data.id);
           return;
         }
 
-        addElem(message, container);
-        widgetOrder.push(message.widget.hash);
-        alreadyPresent.add(message.widget.id);
+        addElem(message.data, container);
+        widgetOrder.push(message.data.hash);
+        alreadyPresent.add(message.data.id);
       };
 
       socket.onclose = (event) => {
@@ -110,13 +110,13 @@
         }
         for (let i = 0; i < positionsOfOldWidgetsInNewLayout.length; i++) {
           const movement = positionsOfOldWidgetsInNewLayout[i];
-          const element = widgets.get(movement[0]);
+          const element = widgets.get(movement.elementHash);
 
           const toBeSwappedWithHash = widgetOrder[i];
-          if (movement[0] === toBeSwappedWithHash) {
+          if (movement.elementHash === toBeSwappedWithHash) {
             continue;
           }
-          var elementIndex = widgetOrder.indexOf(movement[0]);
+          var elementIndex = widgetOrder.indexOf(movement.elementHash);
           const temp = widgetOrder[elementIndex];
           widgetOrder[elementIndex] = widgetOrder[i];
           widgetOrder[i] = temp;
@@ -127,25 +127,35 @@
           container.replaceChild(toBeSwappedWithClone, element);
 
           container.replaceChild(elementClone, toBeSwappedWith);
-          widgets.set(movement[0], elementClone);
+          widgets.set(movement.elementHash, elementClone);
           widgets.set(toBeSwappedWithHash, toBeSwappedWithClone);
         }
         for (const widgetWithNeighbors of toCreate) {
-          const nodeAfterNew = widgets.get(widgetWithNeighbors[2]);
-          const element = createElem(widgetWithNeighbors[0]);
-          container.insertBefore(element, nodeAfterNew);
-          widgets.set(widgetWithNeighbors[0].hash, element);
-          if (nodeAfterNew === undefined) {
-            widgetOrder.push(widgetWithNeighbors[0].hash);
+          const nodeAfterNew = widgets.get(widgetWithNeighbors.nextElementHash);
+          const nodeBeforeNew = widgets.get(widgetWithNeighbors.previousElementHash)
+          const element = createElem(widgetWithNeighbors.widget);
+          widgets.set(widgetWithNeighbors.widget.hash, element);
+
+          if (nodeAfterNew === undefined && nodeBeforeNew === undefined) {
+            widgetOrder.push(element)
+            container.appendChild(element)
+          } else if (nodeAfterNew != undefined) {
+            container.insertBefore(element, nodeAfterNew);
+            var elementIndex = widgetOrder.indexOf(widgetWithNeighbors.nextElementHash);
+            widgetOrder.splice(elementIndex, 0, widgetWithNeighbors.widget.hash);
           } else {
-            var elementIndex = widgetOrder.indexOf(widgetWithNeighbors[2]);
-            widgetOrder.splice(elementIndex, 0, widgetWithNeighbors[0].hash);
+            nodeBeforeNew.parentNode.insertBefore(element, nodeBeforeNew.nextSibling);
+            var elementIndex = widgetOrder.indexOf(widgetWithNeighbors.previousElementHash) + 1;
+            if (elementIndex >= widgetOrder.length) {
+              widgetOrder.push(widgetWithNeighbors.widget.hash)
+            } else {
+              widgetOrder.splice(elementIndex, 0, widgetWithNeighbors.widget.hash);
+            }
           }
         }
       };
 
-      const addElem = (message, cont) => {
-        const widget = message.widget
+      const addElem = (widget, cont) => {
         const div = createElem(widget);
         cont.appendChild(div);
         // const container = widgets.get(widget.hash) ?? new Map()

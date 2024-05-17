@@ -8,6 +8,8 @@ from pixel.web.web import TornadoIOLoop
 from pixel.widget_manager.widget_manager import defaultWidgetManager, DiffChecker
 from queue import Queue
 
+import traceback
+
 
 class ScriptEvent(Enum):
     START = auto()
@@ -19,10 +21,12 @@ class ScriptRunner(Thread):
         super().__init__()
         self.queue = queue
         self.lock = Lock()
+        self.lastExecutedBytecode = None
 
     def run(self) -> None:
         while True:
             event = self.queue.get()
+            print('got event!')
             try:
                 self.lock.acquire()
                 if event == ScriptEvent.START:
@@ -30,37 +34,57 @@ class ScriptRunner(Thread):
                 elif event == ScriptEvent.RERUN:
                     self.executeRerun()
             except Exception as e:
+                print("UPAL")
                 print(e)
+                traceback.print_exc()
             finally:
+                print("released lock")
                 self.lock.release()
 
     def executeInitial(self):
-        _execute_script()
+        bytecode, _ = self.getByteCode()
+        self._execute_script(bytecode)
         observerInstance.reloadObserver()
         gc.collect()
 
     def executeRerun(self):
+        bytecode, needReexecute = self.getByteCode()
+        if (not needReexecute):
+            print("not reexecuted")
+            return
+        print('reexecuted')
         wmSnapshot = defaultWidgetManager.snapshot()
-        _execute_script()
+        self._execute_script(bytecode)
+
+        print("reloading observer")
         observerInstance.reloadObserver()
 
+        print("checking for a diff")
         diffChecker = DiffChecker(wmSnapshot)
         defaultWidgetManager.executed()
-        defaultWidgetManager.cleanup()
+        print('cleaning up')
+        defaultWidgetManager.cleanup(diffChecker.resourceToBeDeleted)
+
         if diffChecker.hasDiff:
+            print('found diff - adding callback')
             cb = lambda: defaultWidgetManager.sendDiff(diffChecker.diff)
             TornadoIOLoop.var.addCallback(cb)
 
+        print('collecting garbage')
         gc.collect()
 
+    def getByteCode(self):
+        with open(CommonVariables.get_var(VariablesNames.SCRIPT_NAME)) as f:
+            file = f.read()
 
-def _execute_script():
-    with open(CommonVariables.get_var(VariablesNames.SCRIPT_NAME)) as f:
-        file = f.read()
+        bytecode = compile(
+            file,
+            mode="exec",
+            filename=CommonVariables.get_var(VariablesNames.SCRIPT_NAME),
+        )
 
-    bytecode = compile(
-        file,
-        mode="exec",
-        filename=CommonVariables.get_var(VariablesNames.SCRIPT_NAME),
-    )
-    exec(bytecode, globals())
+        return bytecode, bytecode != self.lastExecutedBytecode
+    def _execute_script(self, bytecode): 
+        exec(bytecode, globals())
+        self.lastExecutedBytecode = bytecode
+        return True

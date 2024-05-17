@@ -1,16 +1,17 @@
 from abc import ABCMeta, abstractmethod
 import base64
 from io import BytesIO
-from typing import Any, Dict, Callable, Type
+from typing import Any, Dict
 
 import jsonpickle
 
 from pixel.api.widgets import WidgetType
-from pixel.commons import Singleton
+from pixel.commons import Singleton, WebSocketMessage, WebSocketMessageType
+from pixel.dataclasses import ImageFormOutput, TextFormOutput
 from pixel.web.exceptions import NotExists
 
-from inspect import signature, getfullargspec
-from pydantic import BaseModel, Field, create_model
+from inspect import signature
+from pydantic import Field, create_model
 
 
 class ProcessorsManager(metaclass=Singleton):
@@ -20,14 +21,13 @@ class ProcessorsManager(metaclass=Singleton):
     def registerForm(self, formId, function, resultType):
         self.data[formId] = FormProcessor(formId, function, resultType)
 
-    # TODO Если при перезапуске скрипта этого эндпоинта не нашлось, то нужно удалить
     def registerEndpoint(self, endpoint, function):
         self.data[endpoint] = EndpointProcessor(endpoint, function)
 
     def register(self, id, endpointProcessor):
         self.data[id] = endpointProcessor
 
-    def process(self, id, args):
+    def processForm(self, id, args):
         return self.data[id].process(args)
 
     def processApi(self, id, body):
@@ -52,23 +52,15 @@ class FormProcessor(Processor):
 
     def process(self, requestBody):
         result = self._function(*requestBody)
+        msgBuilder = lambda x: WebSocketMessage(WebSocketMessageType.FORM_RESPONSE, x.to_message())
         if self._resultType == WidgetType.IMAGE_OUTPUT:
             buffered = BytesIO()
             result.save(buffered, format="PNG")
             imgStr = base64.b64encode(buffered.getvalue())
-            return {
-                "bytes": imgStr.decode("UTF-8"),
-                "type": "form_response",
-                "outputType": self._resultType.name,
-                "formId": self._formId,
-            }
+            return msgBuilder(ImageFormOutput(self._formId, imgStr.decode("UTF-8")))
+
         elif self._resultType == WidgetType.TEXT_OUTPUT:
-            return {
-                "text": str(result),
-                "formId": self._formId,
-                "type": "form_response",
-                "outputType": self._resultType.name.lower(),
-            }
+            return msgBuilder(TextFormOutput(self._formId, str(result)))
 
 
 class EndpointProcessor(Processor):

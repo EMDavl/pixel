@@ -1,123 +1,163 @@
 import os
-from re import I
 from pixel.api.widgets import Resource, Widget
-from typing import List
-from pixel.commons import Singleton, resetId
+from typing import Dict, List
+from pixel.commons import Singleton, WebSocketMessage, WebSocketMessageType, safe_get
 from collections import namedtuple
 import pathlib
 
 from pixel.variables import CommonVariables, VariablesNames
+from pixel.dataclasses import Movement, WidgetsDiff, WidgetWithNeighbors
 
 WidgetManagerSnapshot = namedtuple("WidgetManagerSnapshot", ["data", "hashes"])
-PositionedWidget = namedtuple("PositionedWidget", ["widget", "position"])
-WidgetWithNeighbors = namedtuple("WidgetWithNeighbors", ["widget", "after", "before"])
-Movement = namedtuple("Movement", ["elementHash", "after", "before"])
-WidgetsDiff = namedtuple("WidgetsDiff", ["toDelete", "toCreate", "toMove"])
 
 
 class DiffChecker:
     def __init__(self, snapshot: WidgetManagerSnapshot) -> None:
         self.hasDiff = False
-        self._snapshot = snapshot.data
-        self._snapshotHashes = snapshot.hashes
-        self._data = defaultWidgetManager._data
-        self._hashes = defaultWidgetManager._hashes
-
+        self.resourceToBeDeleted = []
+        self._snapshot: List[Widget] = snapshot.data
+        self._snapshotHashes: Dict[str, Widget] = snapshot.hashes
+        self._data: List[Widget] = defaultWidgetManager._data
+        self._hashes: Dict[str, Widget] = defaultWidgetManager._hashes
+        print('snapshot', self._snapshot)
+        print('snapshotHashes', self._snapshotHashes)
+        print('data', self._data)
+        print('dataHashes', self._hashes)
         self.calculateDiff()
 
     def calculateDiff(self):
-        toDelete = []
+        toDelete = self.getToDelete()
         toMove = []
         toCreate = []
         positionsOfOldWidgetsInNewLayout = []
 
-        for widget, _ in self._snapshot:
-            if widget.hash not in self._hashes:
-                toDelete.append(widget.hash)
-
         for actualPosition in range(len(self._data)):
-            widget, _ = self._data[actualPosition]
+            widget = self._data[actualPosition]
 
             if widget.hash not in self._snapshotHashes:
                 toCreate.append(
                     WidgetWithNeighbors(
                         widget,
-                        (
-                            self._data[actualPosition - 1].widget.hash
-                            if self._data[actualPosition - 1] is not None
-                            else None
-                        ),
-                        (
-                            self._data[actualPosition + 1].widget.hash
-                            if self._data[actualPosition + 1] is not None
-                            else None
-                        ),
+                        safe_get(self._data, actualPosition - 1),
+                        safe_get(self._data, actualPosition + 1),
                     )
                 )
             else:
-                positionsOfOldWidgetsInNewLayout.append(
-                    PositionedWidget(widget, actualPosition)
-                )
+                positionsOfOldWidgetsInNewLayout.append(widget)
+
         toMove = self.orderMovements(positionsOfOldWidgetsInNewLayout)
         toCreate = self.orderCreations(toCreate)
         self.diff = WidgetsDiff(toDelete, toCreate, toMove)
-        self.hasDiff = len(toDelete) != 0 or len(toCreate) != 0 or len(toMove) != 0
+        self.hasDiff = len(toDelete) != 0 or len(toCreate) != 0 or self.needPerformMoves(toMove)
 
-    def getOldPosition(self, widgetHash):
+    def needPerformMoves(self, moves):
         for i in range(len(self._snapshot)):
-            if self._snapshot[i].widget.hash == widgetHash:
-                return i
+            if (self._snapshot[i].hash != moves[i].elementHash):
+                return True
+        
+        return False
+
+
+    def getToDelete(self):
+        toDelete = []
+        for entryHash, widget in self._snapshotHashes.items():
+            dataEntryWidgets = self._hashes.get(entryHash)
+            if dataEntryWidgets is None:
+                toDelete.append(entryHash)
+                if _isResource(widget):
+                    self.resourceToBeDeleted.append(widget.file_name)
+        print("Collected elements for deletion")
+        return toDelete
 
     def orderMovements(self, newPositions) -> List[Movement]:
+        print("ordering movements")
         orderedMovements = []
         if len(newPositions) == 0:
             return []
+
+        if _isResource(newPositions[0]):
+            self.resourceToBeDeleted.append(newPositions[0].file_name)
+            newPositions[0].file_name = self._snapshotHashes[
+                newPositions[0].hash
+            ].file_name
+
         if len(newPositions) == 1:
-            return [Movement(newPositions[0].widget.hash, "", "")]
+            return [Movement(newPositions[0].hash, "", "")]
 
         orderedMovements.append(
-            Movement(newPositions[0].widget.hash, "", newPositions[1].widget.hash)
+            Movement(newPositions[0].hash, "", newPositions[1].hash)
         )
+
         for i in range(1, len(newPositions) - 1):
-            widgetHash = newPositions[i].widget.hash
-            after = newPositions[i - 1].widget.hash
-            before = newPositions[i + 1].widget.hash
+            if _isResource(newPositions[i]):
+                self.resourceToBeDeleted.append(newPositions[i].file_name)
+                newPositions[i].file_name = self._snapshotHashes[
+                    newPositions[i].hash
+                ].file_name
+
+            widgetHash = newPositions[i].hash
+            after = newPositions[i - 1].hash
+            before = newPositions[i + 1].hash
             orderedMovements.append(Movement(widgetHash, after, before))
 
+        if _isResource(newPositions[-1]):
+            self.resourceToBeDeleted.append(newPositions[-1].file_name)
+            newPositions[-1].file_name = self._snapshotHashes[
+                newPositions[-1].hash
+            ].file_name
+
         orderedMovements.append(
-            Movement(newPositions[-1].widget.hash, newPositions[-2].widget.hash, "")
+            Movement(newPositions[-1].hash, newPositions[-2].hash, "")
         )
+        print("ordered movements")
         return orderedMovements
 
     def orderCreations(self, toCreate):
+        print("ordering creations")
         orderedCreations = []
         compareWith = set(self._snapshotHashes)
         processed = 0
+        print('toCreate', toCreate)
+        print('compareWith', compareWith)
+
+        if len(compareWith) == 0:
+            return toCreate
+
         while len(toCreate) != processed:
             for i in range(len(toCreate)):
                 elem = toCreate[i]
                 if elem.widget.hash in compareWith:
                     continue
-                if elem.after in compareWith or elem.before in compareWith:
+                if (
+                    elem.previousElementHash in compareWith
+                    or elem.nextElementHash in compareWith
+                ):
                     orderedCreations.append(elem)
                     compareWith.add(elem.widget.hash)
                     processed += 1
+        print("ordered creations")
         return orderedCreations
 
 
 class WidgetManager(metaclass=Singleton):
     def __init__(self):
         self._snapshot = []
-        self._data: List[PositionedWidget] = []
-        self._snapshotHashes = {}
-        self._hashes = {}
+        self._data: List[Widget] = []
+        self._snapshotHashes: Dict[str, Widget] = {}
+        self._hashes: Dict[str, Widget] = {}
         self._isScriptRunning = False
+        self.cleaner = ResourceCleaner()
 
     def register(self, hash, obj: Widget):
-        if obj.hash is None:
-            obj.hash = hash
+        expectedHash = hash
+        counter = 0
+        while self._hashes.get(expectedHash) is not None:
+            expectedHash = hash + str(counter)
+            counter += 1
+
+        obj.hash = expectedHash
         self._hashes[obj.hash] = obj
-        self._data.append(PositionedWidget(obj, len(self._data)))
+        self._data.append(obj)
 
     def snapshot(self):
         self._snapshot = self._data
@@ -125,7 +165,6 @@ class WidgetManager(metaclass=Singleton):
         self._isScriptRunning = True
         self._data = []
         self._hashes = {}
-        resetId()
         return WidgetManagerSnapshot(self._snapshot, self._snapshotHashes)
 
     def widgetsIterator(self):
@@ -137,40 +176,30 @@ class WidgetManager(metaclass=Singleton):
     def executed(self):
         self._isScriptRunning = False
 
-    def cleanup(self):
-        if True:
-            return
-        for widget in self._snapshot:
-            if self.resourceHasToBeDeleted(widget.widget):
-                self.deleteResource(widget.widget)
-
-    def resourceHasToBeDeleted(self, widget):
-        return issubclass(widget.__class__, Resource)
-
-    def deleteResource(self, widget):
-        path = os.path.join(
-            CommonVariables.get_var(VariablesNames.STATIC_PATH), widget.file_name
-        )
-        pathlib.Path(path).unlink(missing_ok=False)
+    def cleanup(self, resourceToBeDeleted):
+        self.cleaner.cleanup(resourceToBeDeleted)
 
     def sendDiff(self, diff: WidgetsDiff):
         from pixel.web.web import MessagingManager
 
-        MessagingManager.broadcast(
-            message={
-                "type": "update",
-                "toDelete": diff.toDelete,
-                "toMove": diff.toMove,
-                "toCreate": [
-                    [widget[0].to_message(), widget[1], widget[2]]
-                    for widget in diff.toCreate
-                ],
-            }
-        )
+        msg = WebSocketMessage(type=WebSocketMessageType.UPDATE, data=diff.to_message())
+        MessagingManager.broadcast(msg)
 
-    @classmethod
-    def create(cls):
-        WidgetManager()
+
+class ResourceCleaner(object):
+    def cleanup(self, resourceToBeDeleted):
+        for fileName in resourceToBeDeleted:
+            self.deleteResource(fileName)
+
+    def deleteResource(self, fileName):
+        path = os.path.join(
+            CommonVariables.get_var(VariablesNames.STATIC_PATH), fileName
+        )
+        pathlib.Path(path).unlink(missing_ok=False)
+
+
+def _isResource(widget):
+    return issubclass(widget.__class__, Resource)
 
 
 defaultWidgetManager = WidgetManager()
