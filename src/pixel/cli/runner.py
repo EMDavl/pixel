@@ -13,13 +13,18 @@ import matplotlib
 async def main():
     init()
     atexit.register(exit_hook)
-    queue = Queue()
-    runner = executor.ScriptRunner(queue)
+    appToRunner = Queue()
+    runnerToApp = Queue()
+    runner = executor.ScriptRunner(appToRunner, runnerToApp)
     runner.daemon = True
     runner.start()
-    CommonVariables.set_var(VariablesNames.EVENT_QUEUE, queue)
-    queue.put_nowait(executor.ScriptEvent.START)
-    await web.main()
+    CommonVariables.set_var(VariablesNames.EVENT_QUEUE, appToRunner)
+    CommonVariables.set_var(VariablesNames.RUNNER_TO_APP_QUEUE, runnerToApp)
+    appToRunner.put_nowait(executor.ScriptEvent.START)
+    if runnerToApp.get() == executor.ScriptEvent.STARTED:
+        await web.main()
+    else:
+        print("Failed to start app")
 
 
 def init():

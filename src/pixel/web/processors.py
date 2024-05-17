@@ -12,17 +12,23 @@ from pixel.web.exceptions import NotExists
 
 from inspect import signature
 from pydantic import Field, create_model
+import apispec
 
 
 class ProcessorsManager(metaclass=Singleton):
     def __init__(self):
+        self.spec = apispec.APISpec(title="Your cool app", version="0.0.1", openapi_version='3.1.0')
         self.data: Dict[str, Processor] = {}
 
     def registerForm(self, formId, function, resultType):
         self.data[formId] = FormProcessor(formId, function, resultType)
 
     def registerEndpoint(self, endpoint, function):
-        self.data[endpoint] = EndpointProcessor(endpoint, function)
+        processor = EndpointProcessor(endpoint, function)
+        self.data[endpoint] = processor
+        # self.spec.path(
+        #     processor.spec()
+        # )
 
     def register(self, id, endpointProcessor):
         self.data[id] = endpointProcessor
@@ -84,6 +90,9 @@ class EndpointProcessor(Processor):
         if isinstance(data, primitives):
             return Result(data)
         return data
+    
+    def spec(self):
+        return ""
 
 
 class Result:

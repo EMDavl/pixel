@@ -13,32 +13,31 @@ import traceback
 
 class ScriptEvent(Enum):
     START = auto()
+    STARTED = auto()
     RERUN = auto()
 
 
 class ScriptRunner(Thread):
-    def __init__(self, queue: Queue) -> None:
+    def __init__(self, consume: Queue, produce: Queue) -> None:
         super().__init__()
-        self.queue = queue
+        self.consume = consume
+        self.produce = produce
         self.lock = Lock()
         self.lastExecutedBytecode = None
 
     def run(self) -> None:
         while True:
-            event = self.queue.get()
-            print('got event!')
+            event = self.consume.get()
             try:
                 self.lock.acquire()
                 if event == ScriptEvent.START:
                     self.executeInitial()
+                    self.produce.put(ScriptEvent.STARTED)
                 elif event == ScriptEvent.RERUN:
                     self.executeRerun()
             except Exception as e:
-                print("UPAL")
-                print(e)
                 traceback.print_exc()
             finally:
-                print("released lock")
                 self.lock.release()
 
     def executeInitial(self):

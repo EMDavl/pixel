@@ -15,4 +15,5 @@ dependencies = [
     "imagehash",
     "jsonpickle",
     "pydantic",
+    "apispec",
 ]
