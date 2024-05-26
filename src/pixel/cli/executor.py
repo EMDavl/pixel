@@ -49,19 +49,21 @@ class ScriptRunner(Thread):
     def executeRerun(self):
         bytecode, needReexecute = self.getByteCode()
         if (not needReexecute):
-            print("not reexecuted")
             return
-        print('reexecuted')
+        
         wmSnapshot = defaultWidgetManager.snapshot()
-        self._execute_script(bytecode)
 
-        print("reloading observer")
+        try:
+            self._execute_script(bytecode)
+        except Exception as e:
+            print("Failed to execute script. Rolling back")
+            defaultWidgetManager.rollback()
+            return
+    
         observerInstance.reloadObserver()
 
-        print("checking for a diff")
         diffChecker = DiffChecker(wmSnapshot)
         defaultWidgetManager.executed()
-        print('cleaning up')
         defaultWidgetManager.cleanup(diffChecker.resourceToBeDeleted)
 
         if diffChecker.hasDiff:

@@ -5,43 +5,40 @@ from typing import Any, Dict
 
 import jsonpickle
 
-from pixel.api.widgets import WidgetType
+from pixel.api.widgets import Output, WidgetType
 from pixel.commons import Singleton, WebSocketMessage, WebSocketMessageType
 from pixel.dataclasses import ImageFormOutput, TextFormOutput
 from pixel.web.exceptions import NotExists
 
 from inspect import signature
-from pydantic import Field, create_model
-import apispec
+from pydantic import BaseModel, Field, create_model
 
 
 class ProcessorsManager(metaclass=Singleton):
+
     def __init__(self):
-        self.spec = apispec.APISpec(title="Your cool app", version="0.0.1", openapi_version='3.1.0')
-        self.data: Dict[str, Processor] = {}
+        self.forms: Dict[str, Processor] = {}
+        self.endpoints: Dict[str, Processor] = {}
 
     def registerForm(self, formId, function, resultType):
-        self.data[formId] = FormProcessor(formId, function, resultType)
+        self.forms[formId] = FormProcessor(formId, function, resultType)
 
-    def registerEndpoint(self, endpoint, function):
-        processor = EndpointProcessor(endpoint, function)
-        self.data[endpoint] = processor
-        # self.spec.path(
-        #     processor.spec()
-        # )
+    def registerEndpoint(self, endpoint, function, outputType):
+        processor = EndpointProcessor(endpoint, function, outputType)
+        self.endpoints[endpoint] = processor
 
     def register(self, id, endpointProcessor):
-        self.data[id] = endpointProcessor
+        self.forms[id] = endpointProcessor
 
     def processForm(self, id, args):
-        return self.data[id].process(args)
+        return self.forms[id].process(args)
 
     def processApi(self, id, body):
-        processor = self.data.get(id)
+        processor = self.endpoints.get(id)
         if processor is None:
             raise NotExists
 
-        return self.data[id].process(body)
+        return processor.process(body)
 
 
 class Processor(metaclass=ABCMeta):
@@ -71,7 +68,7 @@ class FormProcessor(Processor):
 
 class EndpointProcessor(Processor):
 
-    def __init__(self, endpoint, func):
+    def __init__(self, endpoint, func, outputType):
         self._function = func
         modelFields = {}
         self._functionParams = []
@@ -79,6 +76,8 @@ class EndpointProcessor(Processor):
             modelFields[val.name] = (val.annotation, Field())
             self._functionParams.append(key)
         self._pydanticModel = create_model(endpoint, **modelFields)
+        self.endpoint = endpoint
+        self.outputType = outputType
 
     def process(self, requestBody):
         model = self._pydanticModel(**jsonpickle.decode(requestBody))
@@ -91,10 +90,32 @@ class EndpointProcessor(Processor):
             return Result(data)
         return data
     
-    def spec(self):
-        return ""
-
-
+    def specBody(self):
+        return self._pydanticModel.model_json_schema()
+    
+    def specResponse(self):
+        strRespSchema = {
+            "type": "object",
+            "required": [
+                "result"
+            ],
+            "properties": {
+                "result": {
+                    "type": "string"
+                }
+            }
+        }
+        responseSchema = self.outputType.model_json_schema() if issubclass(self.outputType, BaseModel) else strRespSchema
+        return {
+            "200": {
+                "content": {
+                    "application/json": {
+                        "schema": responseSchema
+                    }
+                }
+            }
+        }
+   
 class Result:
     def __init__(self, result) -> None:
         self.result = result

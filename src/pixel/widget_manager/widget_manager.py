@@ -19,10 +19,6 @@ class DiffChecker:
         self._snapshotHashes: Dict[str, Widget] = snapshot.hashes
         self._data: List[Widget] = defaultWidgetManager._data
         self._hashes: Dict[str, Widget] = defaultWidgetManager._hashes
-        print('snapshot', self._snapshot)
-        print('snapshotHashes', self._snapshotHashes)
-        print('data', self._data)
-        print('dataHashes', self._hashes)
         self.calculateDiff()
 
     def calculateDiff(self):
@@ -167,6 +163,13 @@ class WidgetManager(metaclass=Singleton):
         self._hashes = {}
         return WidgetManagerSnapshot(self._snapshot, self._snapshotHashes)
 
+    def rollback(self):
+        self._data = self._snapshot
+        self._hashes = self._snapshotHashes
+        self._isScriptRunning = False
+        self._snapshotHashes = {}
+        self._snapshot = []
+
     def widgetsIterator(self):
         if self._isScriptRunning:
             return self._snapshot.__iter__()
@@ -180,10 +183,10 @@ class WidgetManager(metaclass=Singleton):
         self.cleaner.cleanup(resourceToBeDeleted)
 
     def sendDiff(self, diff: WidgetsDiff):
-        from pixel.web.web import MessagingManager
+        from pixel.web.web import MainWebSocket
 
         msg = WebSocketMessage(type=WebSocketMessageType.UPDATE, data=diff.to_message())
-        MessagingManager.broadcast(msg)
+        MainWebSocket._broadcast_msg(msg.to_message())
 
 
 class ResourceCleaner(object):

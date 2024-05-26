@@ -11,7 +11,7 @@ class FormOutput(metaclass=ABCMeta):
 
     def to_message(self):
         return {
-            "outputType": self.outputType,
+            "outputType": self.outputType.name,
             "formId": self.formId
         }
 

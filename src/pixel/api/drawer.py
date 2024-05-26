@@ -68,10 +68,11 @@ def markdown(mdText, justCreate=False):
 
 
 def row(widgets, justCreate=False):
+    row = Row(widgets)
     if justCreate:
-        return Row(widgets)
+        return row
 
-    widgetManager.register(id, Row(widgets))
+    widgetManager.register(row.hash, row)
 
 
 def column(widgets, justCreate=False):
@@ -100,13 +101,13 @@ def form(inputWidgets, outputWidget: Output, function):
         # TODO send alert or display error instead of this panel
         pass
     form = Form(inputWidgets, outputWidget)
-    procManager.registerForm(form.hash, function, outputWidget._type)
+    procManager.registerForm(form.id, function, outputWidget._type)
     widgetManager.register(form.hash, form)
 
 
-def api(endpoint):
+def api(endpoint, outputType):
     def wrap(func):
-        procManager.registerEndpoint(endpoint, func)
+        procManager.registerEndpoint(endpoint, func, outputType)
 
         @functools.wraps(func)
         def wrapper(*args):

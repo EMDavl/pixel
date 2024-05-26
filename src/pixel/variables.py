@@ -7,6 +7,7 @@ class VariablesNames(Enum):
     TITLE = auto()
     EVENT_QUEUE = auto()
     RUNNER_TO_APP_QUEUE = auto()
+    SPEC_PATH = auto()
 
 
 class CommonVariables():

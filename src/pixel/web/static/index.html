@@ -113,22 +113,29 @@
           const element = widgets.get(movement.elementHash);
 
           const toBeSwappedWithHash = widgetOrder[i];
+          var elementIndex = widgetOrder.indexOf(movement.elementHash);
+          const toBeSwappedWith = widgets.get(toBeSwappedWithHash);
           if (movement.elementHash === toBeSwappedWithHash) {
             continue;
           }
-          var elementIndex = widgetOrder.indexOf(movement.elementHash);
-          const temp = widgetOrder[elementIndex];
-          widgetOrder[elementIndex] = widgetOrder[i];
-          widgetOrder[i] = temp;
-          const toBeSwappedWith = widgets.get(toBeSwappedWithHash);
-          var elementClone = element.cloneNode(true);
-          var toBeSwappedWithClone = toBeSwappedWith.cloneNode(true);
+          console.log("Change made")
+          if (toBeSwappedWithHash == movement.nextElementHash) {
+            widgetOrder.splice(elementIndex, 1)
+            container.insertBefore(element, toBeSwappedWith)
+            widgetOrder.splice(i, 0, element)
+          } else {
+            const temp = widgetOrder[elementIndex];
+            widgetOrder[elementIndex] = widgetOrder[i];
+            widgetOrder[i] = temp;
+            var elementClone = element.cloneNode(true);
+            var toBeSwappedWithClone = toBeSwappedWith.cloneNode(true);
 
-          container.replaceChild(toBeSwappedWithClone, element);
+            container.replaceChild(toBeSwappedWithClone, element);
 
-          container.replaceChild(elementClone, toBeSwappedWith);
-          widgets.set(movement.elementHash, elementClone);
-          widgets.set(toBeSwappedWithHash, toBeSwappedWithClone);
+            container.replaceChild(elementClone, toBeSwappedWith);
+            widgets.set(movement.elementHash, elementClone);
+            widgets.set(toBeSwappedWithHash, toBeSwappedWithClone);
+          }
         }
         for (const widgetWithNeighbors of toCreate) {
           const nodeAfterNew = widgets.get(widgetWithNeighbors.nextElementHash);
@@ -158,8 +165,6 @@
       const addElem = (widget, cont) => {
         const div = createElem(widget);
         cont.appendChild(div);
-        // const container = widgets.get(widget.hash) ?? new Map()
-        // container.set(widget.id, div)
         widgets.set(widget.hash, div);
       };
 
@@ -186,6 +191,7 @@
         div.classList.add("ratio");
         div.classList.add("ratio-4x3");
         img.classList.add("rounded-3");
+        img.classList.add("w-60");
         img.src = STATIC_PREFIX + widget.file_name;
         div.appendChild(img);
         return div;
@@ -196,7 +202,6 @@
         const div = createDiv(widget.hash);
         div.classList.add("ratio");
         div.classList.add("ratio-4x3");
-
         iframe.src = STATIC_PREFIX + widget.file_name;
         div.appendChild(iframe);
         return div;
@@ -215,7 +220,7 @@
         row.classList.add("row");
         for (const elem of widget.widgets) {
           const rowItem = createDiv(elem.hash);
-          rowItem.classList.add("rowItem");
+          rowItem.classList.add("col");
           addElem(elem, rowItem);
           row.appendChild(rowItem);
         }
@@ -336,10 +341,10 @@
         const out = formData.output;
         console.log(out);
         switch (message.outputType) {
-          case "image_output":
+          case "IMAGE_OUTPUT":
             out.src = `data:image/png;base64,${message.bytes}`;
             break;
-          case "text_output":
+          case "TEXT_OUTPUT":
             out.getElementsByTagName("span")[0].textContent = message.text;
             break;
         }

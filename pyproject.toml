@@ -16,4 +16,5 @@ dependencies = [
     "jsonpickle",
     "pydantic",
     "apispec",
+    "swagger-ui-py",
 ]

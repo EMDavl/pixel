@@ -1,4 +1,4 @@
-import asyncio
+import traceback
 from uuid import uuid4
 import os
 import jsonpickle
@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pydantic import ValidationError
 from tornado.ioloop import IOLoop
 from tornado import gen
+import json
 
 from pixel.commons import Singleton, WebSocketMessage, WebSocketMessageType
 from pixel.widget_manager import widget_manager
@@ -23,14 +24,6 @@ from tornado.websocket import WebSocketHandler
 from pixel.variables import CommonVariables, VariablesNames
 
 executor = ThreadPoolExecutor(8)
-
-
-class MessagingManager:
-
-    @classmethod
-    def broadcast(cls, message: WebSocketMessage):
-        MainWebSocket._broadcast_msg(message.to_message())
-
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
@@ -85,11 +78,12 @@ class MainWebSocket(WebSocketHandler):
         iterator = widget_manager.defaultWidgetManager.widgetsIterator()
 
         for widget in iterator:
+            msg = WebSocketMessage(WebSocketMessageType.WIDGET, widget.to_message())
             try:
-                msg = WebSocketMessage(WebSocketMessageType.WIDGET, widget.to_message())
                 self.write_message(msg.to_message())
             except Exception as e:
-                print(e)
+                print(msg.to_message())
+                traceback.print_exc()
                 self.write_message(
                     WebSocketMessage(
                         WebSocketMessageType.ERROR, {"cause": str(e)}
@@ -103,6 +97,7 @@ class MainWebSocket(WebSocketHandler):
                 result = procManager.processForm(parsed["id"], parsed["args"])
                 self.write_message(result.to_message())
             except Exception as e:
+                traceback.print_exc()
                 self.write_message(
                     WebSocketMessage(
                         WebSocketMessageType.ERROR, {"cause": str(e)}
@@ -114,9 +109,9 @@ class MainWebSocket(WebSocketHandler):
         MainWebSocket.clients.pop(session_id.value)
 
     @classmethod
-    def _broadcast_msg(cls, widget):
+    def _broadcast_msg(cls, message):
         for client in MainWebSocket.clients.values():
-            client.write_message(widget)
+            client.write_message(message)
 
 
 async def main():
@@ -139,8 +134,7 @@ async def main():
     loop = TornadoIOLoop(IOLoop.current())
     TornadoIOLoop.var = loop
     print("Ready to accept connections: http://localhost:8888")
-    await asyncio.Event().wait()
-
+    return app
 
 class TornadoIOLoop(metaclass=Singleton):
     def __init__(self, loop: IOLoop):
