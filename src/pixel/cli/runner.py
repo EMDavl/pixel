@@ -53,6 +53,7 @@ def init():
 
     # SETTING SOME COMMON VARIABLES
     CommonVariables.set_var(VariablesNames.STATIC_PATH, path)
+    CommonVariables.set_var(VariablesNames.TITLE, "Pixel App")
     CommonVariables.set_var(VariablesNames.SCRIPT_NAME, script_name)
     CommonVariables.set_var(VariablesNames.SPEC_PATH, os.path.join(os.path.dirname(__file__), "spec.json"))
     CommonVariables.set_var(VariablesNames.EVENT_QUEUE, appToRunner)

@@ -22,19 +22,15 @@ class ScriptModificationHandler(FileSystemEventHandler):
         path = os.path.abspath(event.src_path)
         if path == self._scriptPath or path in self._dependencies:
             CommonVariables.get_var(VariablesNames.EVENT_QUEUE).put(ScriptEvent.RERUN)
-            
-
-class ScriptObserverBase():
-    def reloadObserver(self):
-        ...
 
 
-    def getDependencies(self, scriptDir) -> Set[str]:
-        ...
+class ScriptObserverBase:
+    def reloadObserver(self): ...
 
+    def getDependencies(self, scriptDir) -> Set[str]: ...
 
-    def isValidFile(self, path, scriptDir) -> bool:
-        ...
+    def isValidFile(self, path, scriptDir) -> bool: ...
+
 
 class ScriptModificationObserver(ScriptObserverBase, metaclass=Singleton):
 
@@ -46,14 +42,17 @@ class ScriptModificationObserver(ScriptObserverBase, metaclass=Singleton):
     def reloadObserver(self):
         for watch in self._watches:
             self.obs.unschedule(watch)
+
         scriptName = CommonVariables.get_var(VariablesNames.SCRIPT_NAME)
         scriptDir = os.path.abspath(os.path.dirname(scriptName))
         scriptPath = os.path.abspath(scriptName)
-        dependencies = self.getDependencies(scriptDir)
+        dependencies = self.get_dependencies(scriptDir)
+        
         eventHandler = ScriptModificationHandler(scriptPath, dependencies)
+
         self._watches.add(self.obs.schedule(eventHandler, scriptDir, True))
 
-    def getDependencies(self, scriptDir):
+    def get_dependencies(self, scriptDir):
         paths_extractors = [
             lambda m: [m.__file__],
             lambda m: [m.__spec__.origin],
@@ -68,16 +67,17 @@ class ScriptModificationObserver(ScriptObserverBase, metaclass=Singleton):
                     potential_paths = extract_paths(val)
                 except AttributeError:
                     pass
-                all_paths.update(
-                    [
-                        os.path.abspath(str(p))
-                        for p in potential_paths
-                        if self.isValidFile(p, scriptDir)
-                    ]
-                )
+
+                paths = [
+                    os.path.abspath(str(p))
+                    for p in potential_paths
+                    if self.is_valid_file(p, scriptDir)
+                ]
+                if paths:
+                    all_paths.update(paths)
         return all_paths
 
-    def isValidFile(self, path, scriptDir):
+    def is_valid_file(self, path, scriptDir):
         return (
             path is not None
             and not "__index__" in path.split("/")[-1]
@@ -87,12 +87,18 @@ class ScriptModificationObserver(ScriptObserverBase, metaclass=Singleton):
             and path.endswith(".py")
         )
 
+
 class NoOpObserver(ScriptObserverBase):
     def getDependencies(self, scriptDir):
         pass
+
     def isValidFile(self, path, pathDir):
         pass
+
     def reloadObserver(self):
         pass
 
-observerInstance = ScriptModificationObserver() # if (len(sys.argv) >= 3 and sys.argv[3] == 'd') else NoOpObserver()
+
+observer_instance = (
+    ScriptModificationObserver()
+)  # if (len(sys.argv) >= 3 and sys.argv[3] == 'd') else NoOpObserver()

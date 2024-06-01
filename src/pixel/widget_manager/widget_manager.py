@@ -44,15 +44,16 @@ class DiffChecker:
         toMove = self.orderMovements(positionsOfOldWidgetsInNewLayout)
         toCreate = self.orderCreations(toCreate)
         self.diff = WidgetsDiff(toDelete, toCreate, toMove)
-        self.hasDiff = len(toDelete) != 0 or len(toCreate) != 0 or self.needPerformMoves(toMove)
+        self.hasDiff = (
+            len(toDelete) != 0 or len(toCreate) != 0 or self.needPerformMoves(toMove)
+        )
 
     def needPerformMoves(self, moves):
         for i in range(len(self._snapshot)):
-            if (self._snapshot[i].hash != moves[i].elementHash):
+            if self._snapshot[i].hash != moves[i].elementHash:
                 return True
-        
-        return False
 
+        return False
 
     def getToDelete(self):
         toDelete = []
@@ -113,8 +114,8 @@ class DiffChecker:
         orderedCreations = []
         compareWith = set(self._snapshotHashes)
         processed = 0
-        print('toCreate', toCreate)
-        print('compareWith', compareWith)
+        print("toCreate", toCreate)
+        print("compareWith", compareWith)
 
         if len(compareWith) == 0:
             return toCreate
@@ -145,13 +146,7 @@ class WidgetManager(metaclass=Singleton):
         self.cleaner = ResourceCleaner()
 
     def register(self, hash, obj: Widget):
-        expectedHash = hash
-        counter = 0
-        while self._hashes.get(expectedHash) is not None:
-            expectedHash = hash + str(counter)
-            counter += 1
-
-        obj.hash = expectedHash
+        obj.hash = self.get_id(hash)
         self._hashes[obj.hash] = obj
         self._data.append(obj)
 
@@ -162,6 +157,14 @@ class WidgetManager(metaclass=Singleton):
         self._data = []
         self._hashes = {}
         return WidgetManagerSnapshot(self._snapshot, self._snapshotHashes)
+
+    def get_id(self, elemHash):
+        expectedHash = elemHash
+        counter = 0
+        while self._hashes.get(expectedHash) is not None:
+            expectedHash = elemHash + str(counter)
+            counter += 1
+        return expectedHash
 
     def rollback(self):
         self._data = self._snapshot

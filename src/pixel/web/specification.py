@@ -1,11 +1,12 @@
 import apispec
 import json
 
+from pixel.commons import Singleton
 from pixel.variables import CommonVariables, VariablesNames
 from pixel.web.processors import ProcessorsManager
 
 
-class SpecGenerator():
+class SpecGenerator(metaclass = Singleton):
     def __init__(self) -> None:
         self.spec = apispec.APISpec(title=CommonVariables.get_var(VariablesNames.TITLE), version="0.0.1", openapi_version='3.1.0')
         self.procManager = ProcessorsManager()
@@ -38,4 +39,3 @@ class SpecGenerator():
         
         with open(CommonVariables.get_var(VariablesNames.SPEC_PATH), "w") as f:
             f.write(json.dumps(self.spec.to_dict()))
-

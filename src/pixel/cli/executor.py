@@ -3,7 +3,7 @@ from tornado.ioloop import IOLoop
 from pixel.variables import CommonVariables, VariablesNames
 from threading import Lock, Thread
 import gc
-from pixel.observer.observer import observerInstance
+from pixel.observer.observer import observer_instance
 from pixel.web.web import TornadoIOLoop
 from pixel.widget_manager.widget_manager import defaultWidgetManager, DiffChecker
 from queue import Queue
@@ -15,6 +15,7 @@ class ScriptEvent(Enum):
     START = auto()
     STARTED = auto()
     RERUN = auto()
+    FAILED = auto()
 
 
 class ScriptRunner(Thread):
@@ -32,19 +33,25 @@ class ScriptRunner(Thread):
                 self.lock.acquire()
                 if event == ScriptEvent.START:
                     self.executeInitial()
-                    self.produce.put(ScriptEvent.STARTED)
                 elif event == ScriptEvent.RERUN:
                     self.executeRerun()
-            except Exception as e:
+            except Exception:
                 traceback.print_exc()
             finally:
                 self.lock.release()
 
     def executeInitial(self):
-        bytecode, _ = self.getByteCode()
-        self._execute_script(bytecode)
-        observerInstance.reloadObserver()
-        gc.collect()
+        try:
+
+            bytecode, _ = self.getByteCode()
+            self._execute_script(bytecode)
+            observer_instance.reloadObserver()
+            gc.collect()
+            self.produce.put(ScriptEvent.STARTED)
+
+        except Exception:
+            traceback.print_exc()
+            self.produce.put(ScriptEvent.FAILED)
 
     def executeRerun(self):
         bytecode, needReexecute = self.getByteCode()
@@ -60,7 +67,7 @@ class ScriptRunner(Thread):
             defaultWidgetManager.rollback()
             return
     
-        observerInstance.reloadObserver()
+        observer_instance.reloadObserver()
 
         diffChecker = DiffChecker(wmSnapshot)
         defaultWidgetManager.executed()
@@ -85,6 +92,7 @@ class ScriptRunner(Thread):
         )
 
         return bytecode, bytecode != self.lastExecutedBytecode
+
     def _execute_script(self, bytecode): 
         exec(bytecode, globals())
         self.lastExecutedBytecode = bytecode

@@ -12,7 +12,7 @@ from pixel.api.widgets import (
 )
 from PIL import Image as PilImage
 import imagehash
-from typing import cast
+from pixel.cache.cache_manager import CacheManager
 from pixel.web.processors import defaultProcessorManager as procManager
 from pixel.widget_manager.widget_manager import defaultWidgetManager as widgetManager
 import os
@@ -60,7 +60,9 @@ def title(text):
 
 
 def markdown(mdText, justCreate=False):
-    widget = Markdown(hashlib.md5(mdText.encode()).hexdigest(), mdText)
+    elementHash = widgetManager.get_id(hashlib.md5(mdText.encode()).hexdigest())
+
+    widget = Markdown(elementHash, mdText)
     if justCreate:
         return widget
     else:
@@ -116,3 +118,22 @@ def api(endpoint, outputType):
         return wrapper
 
     return wrap
+
+def endpoint(endpoint, outputType, func):
+    procManager.registerEndpoint(endpoint, func, outputType)
+
+def reusable(func):
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return get_reusable(func, *args, **kwargs)
+    
+    return wrapper
+
+def get_reusable(func, *args, **kwargs):
+    result = CacheManager.get(func, *args, **kwargs)
+    if result is None:
+        result = func(*args)
+        CacheManager.put(func, result, *args, **kwargs)
+    return result
+ 
