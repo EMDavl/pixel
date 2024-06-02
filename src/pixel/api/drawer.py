@@ -12,6 +12,7 @@ from pixel.api.widgets import (
 )
 from PIL import Image as PilImage
 import imagehash
+from pixel.authorization.auth import AuthorizationManager
 from pixel.cache.cache_manager import CacheManager
 from pixel.web.processors import defaultProcessorManager as procManager
 from pixel.widget_manager.widget_manager import defaultWidgetManager as widgetManager
@@ -137,4 +138,8 @@ def get_reusable(func, *args, **kwargs):
         result = func(*args, **kwargs)
         CacheManager.put(func, result, *args, **kwargs)
     return result
- 
+
+def authorization(credentials_path):
+    CommonVariables.set_var(VariablesNames.AUTH_ENABLED, True)
+    assert credentials_path.endswith(".csv")
+    AuthorizationManager.parse_file(credentials_path)

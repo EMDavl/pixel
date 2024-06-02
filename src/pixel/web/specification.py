@@ -13,13 +13,8 @@ class SpecGenerator(metaclass = Singleton):
     
     def generate(self):
         for enpoint, processor in self.procManager.endpoints.items():
-            jsonschema = processor.specBody()
-            # definitions = jsonschema["$defs"]
-            # jsonschema.pop('$defs')
-            # print(definitions)
-            # for componentId, componentDefinition in definitions.items():
-                # self.spec.components.schema(componentId, componentDefinition)
-            # jsonschema['properties']['data']['$ref'] = "#/components/schemas/Data"
+            request_schema = processor.request_specification()
+
             self.spec.path(
                 path='/api' + enpoint,
                 operations={
@@ -27,12 +22,12 @@ class SpecGenerator(metaclass = Singleton):
                         "requestBody": {
                             "content": {
                                 "application/json": {
-                                    "schema": jsonschema
+                                    "schema": request_schema
                                 }
                             },
                             "required": True
                             },
-                        "responses": processor.specResponse()
+                        "responses": processor.response_specification()
                     }
                 }
             )

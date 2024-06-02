@@ -3,6 +3,7 @@ from uuid import uuid4
 import os
 import jsonpickle
 from concurrent.futures import ThreadPoolExecutor
+from pixel.authorization.auth import AuthorizationManager
 from pydantic import ValidationError
 from tornado.ioloop import IOLoop
 from tornado import gen
@@ -25,9 +26,41 @@ from pixel.variables import CommonVariables, VariablesNames
 
 executor = ThreadPoolExecutor(8)
 
-class MainHandler(tornado.web.RequestHandler):
+
+class AuthHandler(tornado.web.RequestHandler):
+    def get_current_user(self):
+        return self.get_signed_cookie("user")
+
+
+class LoginHandler(AuthHandler):
     def get(self):
-        self.set_cookie("sessionId", str(uuid4()))
+        # if self.get_current_user:
+            # self.redirect("/")
+            # return
+        self.render("login.html", title="Login")
+
+    def post(self):
+        login = self.get_argument("login")
+        password = self.get_argument("password")
+
+        if (
+            login is not None
+            and password is not None
+            and len(password) >= 8
+            and AuthorizationManager.valid_credentials(login, password)
+        ):
+            self.set_signed_cookie("user", login)
+            self.redirect("/")
+            return
+        
+        self.redirect("/login?success=false")
+
+
+class MainHandler(AuthHandler):
+    def get(self):
+        if not self.current_user:
+            self.redirect("/login")
+            return
         self.render("index.html", title=CommonVariables.get_var(VariablesNames.TITLE))
 
 
@@ -59,21 +92,21 @@ class ApiHandler(tornado.web.RequestHandler):
             self.write({"reason": errors})
 
 
-class MainWebSocket(WebSocketHandler):
+class MainWebSocket(WebSocketHandler, ):
     clients = {}
 
+    def get_current_user(self):
+        return self.get_signed_cookie("user")
+
     def open(self, *args, **kwargs):
-        session_id = self.request.cookies.get("sessionId")
-        if session_id is None:
-            self.write_message(
-                WebSocketMessage(
-                    WebSocketMessageType.ERROR, {"cause": "Missing session id"}
-                ).to_message()
-            )
+        user = self.get_current_user()
+        if not user:
+            self.redirect("/login")
             return
-        MainWebSocket.clients[session_id.value] = self
+
+        MainWebSocket.clients[user] = self
         self.send_widgets()
-    
+
     def send_widgets(self):
         iterator = widget_manager.defaultWidgetManager.widgetsIterator()
 
@@ -105,8 +138,7 @@ class MainWebSocket(WebSocketHandler):
                 )
 
     def on_close(self) -> None:
-        session_id = self.request.cookies.get("sessionId")
-        MainWebSocket.clients.pop(session_id.value)
+        MainWebSocket.clients.pop(self.get_current_user())
 
     @classmethod
     def _broadcast_msg(cls, message):
@@ -119,14 +151,19 @@ async def main():
         "static_path": CommonVariables.get_var(VariablesNames.STATIC_PATH),
         "static_url_prefix": "/static/",
         "template_path": os.path.join(os.path.dirname(__file__), "static"),
+        'cookie_secret': "COOL SECRET"
     }
-
-    app = tornado.web.Application(
-        [
+    paths = [
             (r"/api/.*", ApiHandler),
             (r"/", MainHandler),
             (r"/socket", MainWebSocket),
-        ],
+        ]
+
+    if (CommonVariables.get_var(VariablesNames.AUTH_ENABLED)):
+        paths.append((r"/login", LoginHandler))
+
+    app = tornado.web.Application(
+        paths,
         **settings,
     )
 
@@ -135,6 +172,7 @@ async def main():
     TornadoIOLoop.var = loop
     print("Ready to accept connections: http://localhost:8888")
     return app
+
 
 class TornadoIOLoop(metaclass=Singleton):
     def __init__(self, loop: IOLoop):

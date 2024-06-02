@@ -90,10 +90,10 @@ class EndpointProcessor(Processor):
             return Result(data)
         return data
     
-    def specBody(self):
+    def request_specification(self):
         return self._pydanticModel.model_json_schema()
     
-    def specResponse(self):
+    def response_specification(self):
         strRespSchema = {
             "type": "object",
             "required": [
