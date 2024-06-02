@@ -123,6 +123,7 @@ def endpoint(endpoint, outputType, func):
     procManager.registerEndpoint(endpoint, func, outputType)
 
 def reusable(func):
+    CacheManager.register_function(func)
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -133,7 +134,7 @@ def reusable(func):
 def get_reusable(func, *args, **kwargs):
     result = CacheManager.get(func, *args, **kwargs)
     if result is None:
-        result = func(*args)
+        result = func(*args, **kwargs)
         CacheManager.put(func, result, *args, **kwargs)
     return result
  

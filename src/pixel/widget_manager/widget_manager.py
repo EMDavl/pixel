@@ -11,7 +11,7 @@ from pixel.dataclasses import Movement, WidgetsDiff, WidgetWithNeighbors
 WidgetManagerSnapshot = namedtuple("WidgetManagerSnapshot", ["data", "hashes"])
 
 
-class DiffChecker:
+class WidgetManagerDiffChecker:
     def __init__(self, snapshot: WidgetManagerSnapshot) -> None:
         self.hasDiff = False
         self.resourceToBeDeleted = []

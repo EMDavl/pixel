@@ -1,11 +1,12 @@
 from enum import Enum, auto
 from tornado.ioloop import IOLoop
+from pixel.cache.cache_manager import CacheManager
 from pixel.variables import CommonVariables, VariablesNames
 from threading import Lock, Thread
 import gc
 from pixel.observer.observer import observer_instance
 from pixel.web.web import TornadoIOLoop
-from pixel.widget_manager.widget_manager import defaultWidgetManager, DiffChecker
+from pixel.widget_manager.widget_manager import defaultWidgetManager, WidgetManagerDiffChecker
 from queue import Queue
 
 import traceback
@@ -42,13 +43,11 @@ class ScriptRunner(Thread):
 
     def executeInitial(self):
         try:
-
             bytecode, _ = self.getByteCode()
             self._execute_script(bytecode)
             observer_instance.reloadObserver()
             gc.collect()
             self.produce.put(ScriptEvent.STARTED)
-
         except Exception:
             traceback.print_exc()
             self.produce.put(ScriptEvent.FAILED)
@@ -59,6 +58,7 @@ class ScriptRunner(Thread):
             return
         
         wmSnapshot = defaultWidgetManager.snapshot()
+        cmSnapshot = CacheManager.snapshot()
 
         try:
             self._execute_script(bytecode)
@@ -69,13 +69,15 @@ class ScriptRunner(Thread):
     
         observer_instance.reloadObserver()
 
-        diffChecker = DiffChecker(wmSnapshot)
-        defaultWidgetManager.executed()
-        defaultWidgetManager.cleanup(diffChecker.resourceToBeDeleted)
+        widgetManagerDiffChecker = WidgetManagerDiffChecker(wmSnapshot)
+        CacheManager.cleanup(cmSnapshot)
 
-        if diffChecker.hasDiff:
+        defaultWidgetManager.executed()
+        defaultWidgetManager.cleanup(widgetManagerDiffChecker.resourceToBeDeleted)
+
+        if widgetManagerDiffChecker.hasDiff:
             print('found diff - adding callback')
-            cb = lambda: defaultWidgetManager.sendDiff(diffChecker.diff)
+            cb = lambda: defaultWidgetManager.sendDiff(widgetManagerDiffChecker.diff)
             TornadoIOLoop.var.addCallback(cb)
 
         print('collecting garbage')

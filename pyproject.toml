@@ -17,5 +17,4 @@ dependencies = [
     "pydantic",
     "apispec",
     "swagger-ui-py",
-    "cachier",
 ]
