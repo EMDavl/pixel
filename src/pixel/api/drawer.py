@@ -56,6 +56,21 @@ def plotly(fig, justCreate=False):
         widgetManager.register(hash, Html(hash, filename))
 
 
+def altair(fig, justCreate=False):
+    filename = "file-{}.html".format(int(time() * 1000))
+
+    path = os.path.join(CommonVariables.get_var(VariablesNames.STATIC_PATH), filename)
+
+    fig.save(path)
+    hash = hashlib.md5(fig.to_json().encode()).hexdigest()
+
+    if justCreate:
+        return Html(hash, filename)
+    else:
+        widgetManager.register(hash, Html(hash, filename))
+
+
+
 def title(text):
     CommonVariables.set_var(VariablesNames.TITLE, text)
 
