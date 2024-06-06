@@ -151,7 +151,7 @@ async def main():
         "static_path": CommonVariables.get_var(VariablesNames.STATIC_PATH),
         "static_url_prefix": "/static/",
         "template_path": os.path.join(os.path.dirname(__file__), "static"),
-        'cookie_secret': "COOL SECRET"
+        'cookie_secret': "PUPI SECRET"
     }
     paths = [
             (r"/api/.*", ApiHandler),

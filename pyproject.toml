@@ -17,5 +17,5 @@ dependencies = [
     "pydantic",
     "apispec",
     "swagger-ui-py",
-    "bcrypt"
+    "bcrypt",
 ]

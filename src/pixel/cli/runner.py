@@ -41,6 +41,11 @@ def init():
         shutil.rmtree(path, ignore_errors=True)
     path.mkdir()
 
+    # SETTING SOME COMMON VARIABLES
+    CommonVariables.set_var(VariablesNames.STATIC_PATH, path)
+    CommonVariables.set_var(VariablesNames.TITLE, "Pixel App")
+    CommonVariables.set_var(VariablesNames.SCRIPT_NAME, script_name)
+    CommonVariables.set_var(VariablesNames.SPEC_PATH, os.path.join(os.path.dirname(__file__), "openapi.json"))
     # INITIALIZING THINGS
     appToRunner = Queue()
     runnerToApp = Queue()
@@ -50,14 +55,9 @@ def init():
     appToRunner.put_nowait(executor.ScriptEvent.START)
     matplotlib.use("agg")
 
-
-    # SETTING SOME COMMON VARIABLES
-    CommonVariables.set_var(VariablesNames.STATIC_PATH, path)
-    CommonVariables.set_var(VariablesNames.TITLE, "Pixel App")
-    CommonVariables.set_var(VariablesNames.SCRIPT_NAME, script_name)
-    CommonVariables.set_var(VariablesNames.SPEC_PATH, os.path.join(os.path.dirname(__file__), "spec.json"))
     CommonVariables.set_var(VariablesNames.EVENT_QUEUE, appToRunner)
     CommonVariables.set_var(VariablesNames.RUNNER_TO_APP_QUEUE, runnerToApp)
+
 
 def exit_hook():
     path = CommonVariables.get_var(VariablesNames.STATIC_PATH)

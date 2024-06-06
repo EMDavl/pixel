@@ -1,9 +1,12 @@
 import apispec
 import json
+import random
+import string
 
 from pixel.commons import Singleton
 from pixel.variables import CommonVariables, VariablesNames
 from pixel.web.processors import ProcessorsManager
+
 
 
 class SpecGenerator(metaclass = Singleton):
@@ -12,9 +15,20 @@ class SpecGenerator(metaclass = Singleton):
         self.procManager = ProcessorsManager()
     
     def generate(self):
+        defs = "$defs"
         for enpoint, processor in self.procManager.endpoints.items():
-            request_schema = processor.request_specification()
-
+            request_schema = processor.request_schema()
+            if request_schema.get(defs) is not None:
+                for key, value in request_schema.get(defs).items():
+                    self.spec.components.schema(key, value)
+                request_schema.pop(defs)
+            
+            response_schema = processor.response_schema()
+            if response_schema.get(defs) is not None:
+                for key, value in response_schema.get(defs).items():
+                    self.spec.components.schema(key, value)
+                response_schema.pop(defs)
+            
             self.spec.path(
                 path='/api' + enpoint,
                 operations={
@@ -27,10 +41,21 @@ class SpecGenerator(metaclass = Singleton):
                             },
                             "required": True
                             },
-                        "responses": processor.response_specification()
+                        "responses": {
+                            "200": {
+                                "description": "response object",
+                                "content": {
+                                    "application/json": {
+                                        "schema": response_schema
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             )
         
         with open(CommonVariables.get_var(VariablesNames.SPEC_PATH), "w") as f:
-            f.write(json.dumps(self.spec.to_dict()))
+            schema = json.dumps(self.spec.to_dict())
+            schema = schema.replace(defs, "components/schemas")
+            f.write(schema)

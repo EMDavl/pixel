@@ -88,12 +88,14 @@ class EndpointProcessor(Processor):
         primitives = (bool, str, int, float, type(None), list, set)
         if isinstance(data, primitives):
             return Result(data)
-        return data
+        elif isinstance(data, BaseModel):
+            return data.model_dump()
+        return Result("empty")
     
-    def request_specification(self):
-        return self._pydanticModel.model_json_schema()
+    def request_schema(self):
+        return self._pydanticModel.schema()
     
-    def response_specification(self):
+    def response_schema(self):
         strRespSchema = {
             "type": "object",
             "required": [
@@ -103,18 +105,13 @@ class EndpointProcessor(Processor):
                 "result": {
                     "type": "string"
                 }
+            },
+            "example": {
+                "result": "string"
             }
         }
-        responseSchema = self.outputType.model_json_schema() if issubclass(self.outputType, BaseModel) else strRespSchema
-        return {
-            "200": {
-                "content": {
-                    "application/json": {
-                        "schema": responseSchema
-                    }
-                }
-            }
-        }
+        response_schema = self.outputType.schema() if issubclass(self.outputType, BaseModel) else strRespSchema
+        return response_schema
    
 class Result:
     def __init__(self, result) -> None:
