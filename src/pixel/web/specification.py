@@ -1,7 +1,5 @@
 import apispec
 import json
-import random
-import string
 
 from pixel.commons import Singleton
 from pixel.variables import CommonVariables, VariablesNames
@@ -16,6 +14,7 @@ class SpecGenerator(metaclass = Singleton):
     
     def generate(self):
         defs = "$defs"
+        self.spec = apispec.APISpec(title=CommonVariables.get_var(VariablesNames.TITLE), version="0.0.1", openapi_version='3.1.0')
         for enpoint, processor in self.procManager.endpoints.items():
             request_schema = processor.request_schema()
             if request_schema.get(defs) is not None:

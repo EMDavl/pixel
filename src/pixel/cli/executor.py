@@ -5,9 +5,11 @@ from pixel.variables import CommonVariables, VariablesNames
 from threading import Lock, Thread
 import gc
 from pixel.observer.observer import observer_instance
+from pixel.web.specification import SpecGenerator
 from pixel.web.web import TornadoIOLoop
 from pixel.widget_manager.widget_manager import defaultWidgetManager, WidgetManagerDiffChecker
 from queue import Queue
+from pixel.web.processors import defaultProcessorManager
 
 import traceback
 
@@ -59,6 +61,7 @@ class ScriptRunner(Thread):
         
         wmSnapshot = defaultWidgetManager.snapshot()
         cmSnapshot = CacheManager.snapshot()
+        procSnapshot = defaultProcessorManager.snapshot()
 
         try:
             self._execute_script(bytecode)
@@ -74,11 +77,16 @@ class ScriptRunner(Thread):
 
         defaultWidgetManager.executed()
         defaultWidgetManager.cleanup(widgetManagerDiffChecker.resourceToBeDeleted)
-
+        defaultProcessorManager.executed()
+    
         if widgetManagerDiffChecker.hasDiff:
             print('found diff - adding callback')
             cb = lambda: defaultWidgetManager.sendDiff(widgetManagerDiffChecker.diff)
             TornadoIOLoop.var.addCallback(cb)
+        
+        if (procSnapshot.has_diff()):
+            print("Regenerating specification")
+            SpecGenerator().generate()
 
         print('collecting garbage')
         gc.collect()

@@ -51,7 +51,7 @@ class CacheManager:
         changed = False
         for function_hash in snapshot.functions:
             if function_hash not in cls.functions:
-                cls.cache.pop(function_hash)
+                cls.cache.pop(function_hash, None)
                 changed = True
         
         if changed:
