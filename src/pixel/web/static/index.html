@@ -188,10 +188,8 @@
       const imageProcessor = (widget) => {
         const div = createDiv(widget.hash);
         const img = document.createElement("img");
-        div.classList.add("ratio");
-        div.classList.add("ratio-4x3");
+        div.classList.add("row")
         img.classList.add("rounded-3");
-        img.classList.add("w-60");
         img.src = STATIC_PREFIX + widget.file_name;
         div.appendChild(img);
         return div;
@@ -200,8 +198,7 @@
       const htmlProcessor = (widget) => {
         const iframe = document.createElement("iframe");
         const div = createDiv(widget.hash);
-        div.classList.add("ratio");
-        div.classList.add("ratio-4x3");
+        div.classList.add('row')
         iframe.src = STATIC_PREFIX + widget.file_name;
         div.appendChild(iframe);
         return div;
